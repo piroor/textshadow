@@ -5,6 +5,7 @@ var TextShadowService = {
 	__textshadow__drawCues : [],
 
 	shadowEnabled : false,
+	positionQuality : 1,
 
 	UPDATE_INIT     : 0,
 	UPDATE_PAGELOAD : 1,
@@ -390,12 +391,18 @@ var TextShadowService = {
 			if (/^\s+$/.test(node.nodeValue)) continue;
 			var newWrapper = wrapper.cloneNode(true);
 			var newInnerWrapper = innerWrapper.cloneNode(true);
+			newWrapper.appendChild(newInnerWrapper);
+			newInnerWrapper.appendChild(node.cloneNode(true));
 			node.parentNode.insertBefore(newWrapper, node);
 			node.parentNode.removeChild(node);
-			newWrapper.appendChild(newInnerWrapper);
-			newInnerWrapper.appendChild(node);
 			bases.push(newWrapper);
 		}
+
+		var dummy1 = d.createElement('text-shadow-dummy-box');
+		dummy1.appendChild(d.createTextNode('!'));
+		var dummy2 = dummy1.cloneNode(true);
+		dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
+		dummy2.setAttribute('style', 'visibility: hidden;');
 
 		var shadow = d.createElement('text-shadow');
 		var shadows = d.createElement('text-shadow-container');
@@ -434,7 +441,14 @@ var TextShadowService = {
 					yOffset -= Math.round((this.getComputedPixels(bases[i].parentNode, 'line-height') - this.getComputedPixels(bases[i].parentNode, 'font-size')) / 2);
 					break;
 				default:
-//					yOffset += this.getComputedPixels(bases[i].parentNode, 'padding-top');
+					if (this.positionQuality < 1) break;
+					var f = d.createDocumentFragment();
+					f.appendChild(dummy1);
+					f.appendChild(dummy2);
+					bases[i].appendChild(f);
+					yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
+					bases[i].removeChild(dummy1);
+					bases[i].removeChild(dummy2);
 					break;
 			}
 
@@ -461,26 +475,26 @@ var TextShadowService = {
 					newShadows.appendChild(newShadow);
 				}
 			}
-			bases[i].appendChild(newShadows);
-			bases[i].firstChild.setAttribute('style', 'position: relative; z-index: 2;');
-			d.defaultView.setTimeout(function(aSelf, aNode, aShadows) {
-				aNode.setAttribute('style', 'display: block;');
-				aNode.ownerDocument.defaultView.setTimeout(function(aSelf, aNode, aShadows) {
-					aNode.setAttribute('style', 'position: relative; z-index: 2;');
-					var info = aSelf.getSizeBox(aNode.parentNode || aNode);
-					aShadows.setAttribute('style',
-						'position: absolute !important; display: block !important;'
-						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
-						+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;'
-						+ 'top: ' + yOffset + 'px !important;'
-						+ 'bottom: ' + (-yOffset) + 'px !important;'
-						+ 'left: ' + xOffset + 'px !important;'
-						+ 'right: ' + (-xOffset) + 'px !important;'
-						+ 'z-index: 1 !important;'
-						+ 'color: ' + (aColor || color) + ' !important;'
-					);
-				}, 0, aSelf, aNode, aShadows);
-			}, 0, this, bases[i].firstChild, newShadows);
+
+			var style = 'position: absolute !important; display: block !important;'
+				+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
+				+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;'
+				+ 'top: ' + yOffset + 'px !important;'
+				+ 'bottom: ' + (-yOffset) + 'px !important;'
+				+ 'left: ' + xOffset + 'px !important;'
+				+ 'right: ' + (-xOffset) + 'px !important;';
+
+			var newContents = bases[i].firstChild.cloneNode(true);
+			newContents.setAttribute('style', style + 'z-index: 2 !important;');
+			newShadows.setAttribute('style', style
+				+ 'z-index: 1 !important;'
+				+ 'color: ' + (aColor || color) + ' !important;'
+			);
+			var f = d.createDocumentFragment();
+			f.appendChild(newContents);
+			f.appendChild(newShadows);
+			bases[i].appendChild(f);
+			bases[i].firstChild.setAttribute('style', 'visibility: hidden !important;');
 		}
 	},
 	 
@@ -739,6 +753,7 @@ var TextShadowService = {
 		aTabBrowser.__textshadow__prefListener = listener;
 		this.addPrefListener(listener);
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
+		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
 
 //		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 //		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
@@ -849,6 +864,10 @@ var TextShadowService = {
 		{
 			case 'extensions.textshadow.enabled':
 				this.shadowEnabled = value;
+				break;
+
+			case 'extensions.textshadow.position.quality':
+				this.positionQuality = value;
 				break;
 
 			default:

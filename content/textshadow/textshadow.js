@@ -405,8 +405,8 @@ var TextShadowService = {
 		dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
 		dummy2.setAttribute('style', 'visibility: hidden;');
 
-		var shadow = d.createElement('text-shadow');
-		var shadows = d.createElement('text-shadow-container');
+		var shadow = d.createElement('text-shadow-part');
+		var shadows = d.createElement('text-shadow');
 		shadows.setAttribute('style', 'display: none;');
 		var display;
 		for (var i in bases)
@@ -431,8 +431,8 @@ var TextShadowService = {
 			while (radius != 1 && (radius * radius) > 30)
 
 			var opacity = 1 / (radius+1);
-			var xOffset = x - radius;
-			var yOffset = y - radius;
+			var xOffset = 0;
+			var yOffset = 0;
 
 			switch (d.defaultView.getComputedStyle(bases[i].parentNode, null).getPropertyValue('display'))
 			{
@@ -482,23 +482,33 @@ var TextShadowService = {
 			var style = 'position: absolute !important; display: block !important;'
 				+ 'margin: 0 !important; padding: 0 !important;'
 				+ 'text-indent: '+info.indent+'px !important;'
-				+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;'
+				+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;';
+
+			var newContents = bases[i].firstChild.cloneNode(true);
+			newContents.setAttribute('style', style
+				+ 'z-index: 2 !important;'
 				+ 'top: ' + yOffset + 'px !important;'
 				+ 'bottom: ' + (-yOffset) + 'px !important;'
 				+ 'left: ' + xOffset + 'px !important;'
-				+ 'right: ' + (-xOffset) + 'px !important;';
-
-			var newContents = bases[i].firstChild.cloneNode(true);
-			newContents.setAttribute('style', style + 'z-index: 2 !important;');
+				+ 'right: ' + (-xOffset) + 'px !important;');
 			newShadows.setAttribute('style', style
 				+ 'z-index: 1 !important;'
+				+ 'top: ' + (yOffset+y-(radius / 2)) + 'px !important;'
+				+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
+				+ 'left: ' + (xOffset+x-(radius / 2)) + 'px !important;'
+				+ 'right: ' + (-(xOffset+x-(radius / 2))) + 'px !important;'
+				+ '-moz-user-select: none !important;'
+				+ '-moz-user-focus: none !important;'
 				+ 'color: ' + (aColor || color) + ' !important;'
 			);
 			var f = d.createDocumentFragment();
 			f.appendChild(newContents);
 			f.appendChild(newShadows);
 			bases[i].appendChild(f);
-			bases[i].firstChild.setAttribute('style', 'visibility: hidden !important;');
+			bases[i].firstChild.setAttribute('style',
+				'visibility: hidden !important;'
+				+ '-moz-user-select: none !important;'
+				+ '-moz-user-focus: none !important;');
 		}
 	},
 	 
@@ -509,7 +519,7 @@ var TextShadowService = {
 		var bases = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-base"]', aElement);
 		if (!bases.snapshotLength) return;
 
-		var shadows = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-container"]', aElement);
+		var shadows = this.getNodesByXPath('descendant::*[local-name() = "text-shadow"]', aElement);
 		if (!shadows.snapshotLength) return;
 
 		for (var i = 0, maxi = shadows.snapshotLength; i < maxi; i++)

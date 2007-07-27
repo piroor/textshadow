@@ -557,11 +557,15 @@ var TextShadowService = {
 		if (!cues.length) return;
 
 		var cue = cues[0];
-		var info;
-		eval('info = ' + cue.getAttribute('_moz-textshadow-style'));
 		cues = cues.splice(0, 1);
 
-		aSelf.drawShadow(cue, info.x, info.y, info.radius, info.color);
+		try {
+			var sandbox = Components.utils.Sandbox(aFrame.location.href);
+			var info = Components.utils.evalInSandbox(cue.getAttribute('_moz-textshadow-style'), sandbox);
+			aSelf.drawShadow(cue, info.x, info.y, info.radius, info.color);
+		}
+		catch(e) {
+		}
 
 		aSelf.startDrawShadow(aFrame);
 	},

@@ -360,6 +360,8 @@ var TextShadowService = {
 		}
 
 		var shadow = d.createElementNS(this.XMLNS, 'text-shadow');
+		var shadows = d.createElementNS(this.XMLNS, 'text-shadow-container');
+		shadows.setAttribute('style', 'display: none;');
 		var display;
 		for (var i in bases)
 		{
@@ -377,12 +379,6 @@ var TextShadowService = {
 					- this.getComputedPixels(bases[i], 'padding-right')
 					- this.getComputedPixels(bases[i], 'margin-left')
 					- this.getComputedPixels(bases[i], 'margin-right');
-			var width = Math.min(
-					d.getBoxObjectFor(bases[i]).width
-						- this.getComputedPixels(bases[i], 'padding-left')
-						- this.getComputedPixels(bases[i], 'padding-right'),
-					boxWidth
-				);
 			var height = d.getBoxObjectFor(parentBox).height
 				- this.getComputedPixels(parentBox, 'padding-top')
 				- this.getComputedPixels(parentBox, 'padding-bottom');
@@ -392,7 +388,7 @@ var TextShadowService = {
 
 			var x = this.convertToPixels(aX, bases[i], boxWidth);
 			var y = this.convertToPixels(aY, bases[i], height);
-			var radius = this.convertToPixels(aRadius, bases[i], width);
+			var radius = this.convertToPixels(aRadius, bases[i], boxWidth);
 
 			var quality = 0;
 			var gap;
@@ -415,16 +411,15 @@ var TextShadowService = {
 					yOffset -= Math.round((this.getComputedPixels(bases[i].parentNode, 'line-height') - this.getComputedPixels(bases[i].parentNode, 'font-size')) / 2);
 					break;
 				default:
-					yOffset += this.getComputedPixels(bases[i].parentNode, 'padding-top');
+//					yOffset += this.getComputedPixels(bases[i].parentNode, 'padding-top');
 					break;
 			}
 
-			if (
-				d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none' &&
-				this.getComputedPixels(parentBox, 'border-top-width') == 0
-				)
+			if (d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none') {
 				yOffset += this.getComputedPixels(parentBox, 'margin-top');
+			}
 
+			var newShadows = shadows.cloneNode(true);
 			for (var j = 0, maxj = radius; j < maxj; j++)
 			{
 				for (var k = 0, maxk = radius; k < maxk; k++)
@@ -432,25 +427,43 @@ var TextShadowService = {
 					var newShadow = shadow.cloneNode(true);
 					newShadow.appendChild(bases[i].firstChild.firstChild.cloneNode(true));
 					newShadow.setAttribute('style',
-						'display: block !important; margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
-						+ 'width: ' + width + 'px !important;'
-						+ 'position: absolute !important;'
-						+ 'z-index: 1 !important;'
-						+ 'color: ' + (aColor || color) + ' !important;'
+						'position: absolute !important; display: block !important;'
+						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
 						+ 'opacity: ' + opacity + ' !important;'
-						+ 'top: ' + (j+gap+yOffset) + 'px !important;'
-						+ 'left: ' + (k+gap+xOffset) + 'px !important;'
+						+ 'top: ' + (j+gap) + 'px !important;'
+						+ 'bottom: ' + (-j-gap) + 'px !important;'
+						+ 'left: ' + (k+gap) + 'px !important;'
+						+ 'right: ' + (-k-gap) + 'px !important;'
 					);
-					bases[i].appendChild(newShadow);
+					newShadows.appendChild(newShadow);
 				}
 			}
+			bases[i].appendChild(newShadows);
 			bases[i].firstChild.setAttribute('style', 'position: relative; z-index: 2;');
-			d.defaultView.setTimeout(function(aNode) {
+			d.defaultView.setTimeout(function(aSelf, aNode, aShadows, aBoxWidth) {
 				aNode.setAttribute('style', 'display: block;');
-//				d.defaultView.setTimeout(function(aNode) {
+				aNode.ownerDocument.defaultView.setTimeout(function(aSelf, aNode, aShadows, aBoxWidth) {
 					aNode.setAttribute('style', 'position: relative; z-index: 2;');
-//				}, 0, aNode);
-			}, 0, bases[i].firstChild);
+
+					var width = Math.min(
+							aNode.ownerDocument.getBoxObjectFor(aNode.parentNode).width
+								- aSelf.getComputedPixels(aNode.parentNode, 'padding-left')
+								- aSelf.getComputedPixels(aNode.parentNode, 'padding-right'),
+							aBoxWidth
+						);
+					aShadows.setAttribute('style',
+						'position: absolute !important; display: block !important;'
+						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
+						+ 'width: ' + width + 'px !important;'
+						+ 'top: ' + yOffset + 'px !important;'
+						+ 'bottom: ' + (-yOffset) + 'px !important;'
+						+ 'left: ' + xOffset + 'px !important;'
+						+ 'right: ' + (-xOffset) + 'px !important;'
+						+ 'z-index: 1 !important;'
+						+ 'color: ' + (aColor || color) + ' !important;'
+					);
+				}, 0, aSelf, aNode, aShadows, aBoxWidth);
+			}, 0, this, bases[i].firstChild, newShadows, boxWidth);
 		}
 	},
  

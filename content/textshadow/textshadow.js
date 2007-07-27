@@ -44,6 +44,7 @@ var TextShadowService = {
 		if (box == d) box = d.documentElement;
 		return {
 			sizeBox  : box,
+			indent   : this.getComputedPixels(box, 'text-indent'),
 			width : d.getBoxObjectFor(aNode).width
 						- this.getComputedPixels(aNode, 'padding-left')
 						- this.getComputedPixels(aNode, 'padding-right'),
@@ -452,9 +453,11 @@ var TextShadowService = {
 					break;
 			}
 
-			if (d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none') {
+			if (d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
 				yOffset += this.getComputedPixels(parentBox, 'margin-top');
-			}
+
+			if (!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', bases[i]).snapshotLength)
+				xOffset -= info.indent;
 
 			var newShadows = shadows.cloneNode(true);
 			for (var j = 0, maxj = radius; j < maxj; j++)
@@ -465,7 +468,7 @@ var TextShadowService = {
 					newShadow.appendChild(bases[i].firstChild.firstChild.cloneNode(true));
 					newShadow.setAttribute('style',
 						'position: absolute !important; display: block !important;'
-						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
+						+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
 						+ 'opacity: ' + opacity + ' !important;'
 						+ 'top: ' + (j+gap) + 'px !important;'
 						+ 'bottom: ' + (-j-gap) + 'px !important;'
@@ -477,7 +480,8 @@ var TextShadowService = {
 			}
 
 			var style = 'position: absolute !important; display: block !important;'
-				+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
+				+ 'margin: 0 !important; padding: 0 !important;'
+				+ 'text-indent: '+info.indent+'px !important;'
 				+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;'
 				+ 'top: ' + yOffset + 'px !important;'
 				+ 'bottom: ' + (-yOffset) + 'px !important;'
@@ -563,31 +567,11 @@ var TextShadowService = {
 		switch (aReason)
 		{
 			case this.UPDATE_PAGELOAD:
-				var styles = aFrame.document.styleSheets;
-				for (var i = 0, maxi = styles.length; i < maxi; i++)
-				{
-					if (
-						styles[i].disabled ||
-						styles[i].type != 'text/css' ||
-						!/(screen|projection)/i.test(styles[i].media.mediaText)
-						)
-						continue;
-
-					var rules = styles[i].cssRules;
-					for (var j = 0, maxj = rules.length; j < maxj; j++)
-					{
-						if (
-							rules[j].type != rules[j].STYLE_RULE ||
-							!/\btext-shadow\s*:/.test(rules[j].cssText)
-							)
-							continue;
-						this.collectTextShadowTargets(aFrame, rules[j]);
-					}
-					aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
-						return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
-					});
-					this.startDrawShadow(aFrame);
-				}
+				this.collectTargets(aFrame);
+				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
+					return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
+				});
+				this.startDrawShadow(aFrame);
 				break;
 
 			case this.UPDATE_RESIZE:
@@ -606,7 +590,103 @@ var TextShadowService = {
 		}
 	},
 	 
-	collectTextShadowTargets : function(aFrame, aCSSRule) 
+	parseTextShadowValue : function(aValue) 
+	{
+		var x      = 0,
+			y      = 0,
+			radius = 0,
+			color  = null;
+
+		aValue = String(aValue).replace(/\s*!\s*important/i, '');
+
+		/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(aValue);
+		var currentColor = RegExp.$1;
+		if (currentColor) {
+			color = currentColor.replace(/^\s+/, '');
+			aValue = aValue.replace(color, '');
+		}
+		aValue = aValue.replace(/^\s+|\s+$/g, '').split(/\s+/);
+		switch (aValue.length)
+		{
+			case 1:
+				x = y = aValue[0];
+				break;
+			case 2:
+				x = aValue[0];
+				y = aValue[1];
+				break;
+			case 3:
+				x = aValue[0];
+				y = aValue[1];
+				radius = aValue[2];
+				break;
+		}
+
+		return {
+			x      : x,
+			y      : y,
+			radius : radius,
+			color  : color
+		};
+	},
+ 
+	collectTargets : function(aFrame) 
+	{
+		if (!aFrame.document.wrappedJSObject.__textshadow__targets)
+			aFrame.document.wrappedJSObject.__textshadow__targets = [];
+		if (!aFrame.wrappedJSObject.__textshadow__drawCues)
+			aFrame.wrappedJSObject.__textshadow__drawCues = [];
+
+		var styles = aFrame.document.styleSheets;
+		for (var i = 0, maxi = styles.length; i < maxi; i++)
+		{
+			if (
+				styles[i].disabled ||
+				styles[i].type != 'text/css' ||
+				!/(screen|projection)/i.test(styles[i].media.mediaText)
+				)
+				continue;
+
+			var rules = styles[i].cssRules;
+			for (var j = 0, maxj = rules.length; j < maxj; j++)
+			{
+				if (
+					rules[j].type != rules[j].STYLE_RULE ||
+					!/\btext-shadow\s*:/.test(rules[j].cssText)
+					)
+					continue;
+				this.collectTargetsFromCSSRule(aFrame, rules[j]);
+			}
+		}
+
+		var nodes = this.getNodesByXPath('//descendant::*[contains(@style, "text-shadow")]', aFrame.document);
+		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
+		{
+			var node = nodes.snapshotItem(i);
+			var decs = node.getAttribute('style').match(/\btext-shadow\s*:[^;]*/gi);
+			if (
+				node.wrappedJSObject.__textshadow__done ||
+				!decs ||
+				!decs.length
+				)
+				continue;
+
+			var x, y, radius, color;
+			for (var j = 0, maxj = decs.length; j < maxj; j++)
+			{
+				var value = this.parseTextShadowValue(String(decs[j]).replace(/text-shadow\s*:\s*/i, ''));
+				if ((!value.x && !value.y && !value.radius) || value.color == 'transparent') continue;
+				node.wrappedJSObject.__textshadow__info = value;
+			}
+			if (!node.wrappedJSObject.__textshadow__info) continue;
+
+			node.wrappedJSObject.__textshadow__done = true;
+			aFrame.document.wrappedJSObject.__textshadow__targets.push(node);
+			aFrame.wrappedJSObject.__textshadow__drawCues.push(node);
+		}
+	},
+	 
+	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var selectors = aCSSRule.selectorText.split(',');
 
@@ -620,36 +700,13 @@ var TextShadowService = {
 		{
 			if (props[i].toLowerCase() != 'text-shadow') continue;
 
-			var value = props.getPropertyValue('text-shadow');
-			/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(value);
-			var currentColor = RegExp.$1;
-			if (currentColor) {
-				color = currentColor.replace(/^\s+/, '');
-				value = value.replace(color, '');
-			}
-			value = value.replace(/^\s+|\s+$/g, '').split(/\s+/);
-			switch (value.length)
-			{
-				case 1:
-					x = y = value[0];
-					break;
-				case 2:
-					x = value[0];
-					y = value[1];
-					break;
-				case 3:
-					x = value[0];
-					y = value[1];
-					radius = value[2];
-					break;
-			}
+			var value = this.parseTextShadowValue(props.getPropertyValue('text-shadow'));
+			color  = value.color;
+			x      = value.x;
+			y      = value.y;
+			radius = value.radius;
 		}
 		if ((!x && !y && !radius) || color == 'transparent') return;
-
-		if (!aFrame.document.wrappedJSObject.__textshadow__targets)
-			aFrame.document.wrappedJSObject.__textshadow__targets = [];
-		if (!aFrame.wrappedJSObject.__textshadow__drawCues)
-			aFrame.wrappedJSObject.__textshadow__drawCues = [];
 
 		for (var i = 0, maxi = selectors.length; i < maxi; i++)
 		{
@@ -675,7 +732,7 @@ var TextShadowService = {
 			}
 		}
 	},
-  	
+  	 
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
 		var w = aTab.linkedBrowser.contentWindow;

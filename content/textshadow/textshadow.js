@@ -557,7 +557,8 @@ var TextShadowService = {
 		if (!cues.length) return;
 
 		var cue = cues[0];
-		var info = cue.wrappedJSObject.__textshadow__info;
+		var info;
+		eval('info = ' + cue.getAttribute('_moz-textshadow-style'));
 		cues = cues.splice(0, 1);
 
 		aSelf.drawShadow(cue, info.x, info.y, info.radius, info.color);
@@ -585,12 +586,12 @@ var TextShadowService = {
 				break;
 
 			case this.UPDATE_RESIZE:
-				if (!aFrame.wrappedJSObject.__textshadow__drawCues || !aFrame.document.wrappedJSObject.__textshadow__targets) return;
-
-				var nodes = aFrame.document.wrappedJSObject.__textshadow__targets;
-				for (var i = 0, maxi = nodes.length; i < maxi; i++)
+				if (!aFrame.wrappedJSObject.__textshadow__drawCues) return;
+				var nodes = this.getNodesByXPath('//descendant::*[@_moz-textshadow-style]', aFrame.document);
+				if (!nodes.snapshotLength) return;
+				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 				{
-					aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes[i]);
+					aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes.snapshotItem(i));
 				}
 				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
 					return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
@@ -642,8 +643,6 @@ var TextShadowService = {
  
 	collectTargets : function(aFrame) 
 	{
-		if (!aFrame.document.wrappedJSObject.__textshadow__targets)
-			aFrame.document.wrappedJSObject.__textshadow__targets = [];
 		if (!aFrame.wrappedJSObject.__textshadow__drawCues)
 			aFrame.wrappedJSObject.__textshadow__drawCues = [];
 
@@ -681,7 +680,7 @@ var TextShadowService = {
 			var node = nodes.snapshotItem(i);
 			var decs = node.getAttribute('style').match(/\btext-shadow\s*:[^;]*/gi);
 			if (
-				node.wrappedJSObject.__textshadow__done ||
+				node.hasAttribute('_moz-textshadow-scanned') ||
 				!decs ||
 				!decs.length
 				)
@@ -692,12 +691,11 @@ var TextShadowService = {
 			{
 				var value = this.parseTextShadowValue(String(decs[j]).replace(/text-shadow\s*:\s*/i, ''));
 				if ((!value.x && !value.y && !value.radius) || value.color == 'transparent') continue;
-				node.wrappedJSObject.__textshadow__info = value;
+				node.setAttribute('_moz-textshadow-style', value.toSource());
 			}
-			if (!node.wrappedJSObject.__textshadow__info) continue;
+			if (!node.hasAttribute('_moz-textshadow-style')) continue;
 
-			node.wrappedJSObject.__textshadow__done = true;
-			aFrame.document.wrappedJSObject.__textshadow__targets.push(node);
+			node.setAttribute('_moz-textshadow-scanned', true);
 			aFrame.wrappedJSObject.__textshadow__drawCues.push(node);
 		}
 	},
@@ -732,18 +730,17 @@ var TextShadowService = {
 				if (
 					!nodes[j].textContent ||
 					/^\s*$/.test(nodes[j].textContent) ||
-					nodes[j].wrappedJSObject.__textshadow__done
+					nodes[j].hasAttribute('_moz-textshadow-scanned')
 					)
 					continue;
 
-				nodes[j].wrappedJSObject.__textshadow__done = true;
-				nodes[j].wrappedJSObject.__textshadow__info = {
+				nodes[j].setAttribute('_moz-textshadow-scanned', true);
+				nodes[j].setAttribute('_moz-textshadow-style', ({
 					x      : x,
 					y      : y,
 					radius : radius,
 					color  : color
-				};
-				aFrame.document.wrappedJSObject.__textshadow__targets.push(nodes[j]);
+				}).toSource());
 				aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes[j]);
 			}
 		}

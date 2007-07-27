@@ -1,1 +1,7 @@
-<!ENTITY textshadow.name    "テキストシャドウ">
+<!ENTITY config.title    "テキストシャドウの設定">
+
+<!ENTITY extensions.textshadow.enabled  "文字に影を付けて表示する">
+
+<!ENTITY config.position.quality.caption  "位置ズレの補正">
+<!ENTITY extensions.textshadow.position.quality.0  "処理速度を優先">
+<!ENTITY extensions.textshadow.position.quality.1  "表示位置の正しさを優先">

@@ -19,6 +19,49 @@ var TextShadowService = {
  
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
  
+	getNodesByXPath : function(aExpression, aContext) 
+	{
+		var d = aContext.ownerDocument || aContext;
+		try {
+			nodes = d.evaluate(aExpression, aContext, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+		}
+		catch(e) {
+			nodes = document.evaluate(aExpression, aContext, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+		}
+		return nodes;
+	},
+ 
+	getSizeBox : function(aNode) 
+	{
+		var d = aNode.ownerDocument;
+		var w = d.defaultView;
+		var box = aNode;
+		while ((display = w.getComputedStyle(box, null).getPropertyValue('display')) != 'block' && display != '-moz-box' && box.parentNode)
+		{
+			box = box.parentNode;
+		}
+		if (box == d) box = d.documentElement;
+		return {
+			sizeBox  : box,
+			width : d.getBoxObjectFor(aNode).width
+						- this.getComputedPixels(aNode, 'padding-left')
+						- this.getComputedPixels(aNode, 'padding-right'),
+			height : d.getBoxObjectFor(aNode).height
+						- this.getComputedPixels(aNode, 'padding-top')
+						- this.getComputedPixels(aNode, 'padding-bottom'),
+			boxWidth : d.getBoxObjectFor(box).width
+					- this.getComputedPixels(box, 'padding-left')
+					- this.getComputedPixels(box, 'padding-right')
+					- this.getComputedPixels(aNode, 'padding-left')
+					- this.getComputedPixels(aNode, 'padding-right')
+					- this.getComputedPixels(aNode, 'margin-left')
+					- this.getComputedPixels(aNode, 'margin-right'),
+			boxHeight : d.getBoxObjectFor(box).height
+				- this.getComputedPixels(box, 'padding-top')
+				- this.getComputedPixels(box, 'padding-bottom')
+		};
+	},
+ 
 	getElementsBySelector : function(aSelector, aTargetDocument) 
 	{
 		var tokens = aSelector
@@ -278,7 +321,7 @@ var TextShadowService = {
 //dump(foundElements+'\n');
 		return foundElements;
 	},
- 	
+ 
 	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 
 	{
 		if (!aCSSLength || typeof aCSSLength == 'number')
@@ -322,30 +365,25 @@ var TextShadowService = {
   
 /* draw shadow */ 
 	 
-	XMLNS : 'http://www.w3.org/1999/xhtml', 
- 
 	drawShadow : function(aElement, aX, aY, aRadius, aColor) 
 	{
+		if (aElement.getElementsByTagName('text-shadow-box').length) {
+			return this.redrawShadow(aElement);
+		}
+
 //dump('drawShadow '+aElement+'\n  '+[aX, aY, aRadius, aColor]+'\n');
 		if (aX === void(0)) aX = 0;
 		if (aY === void(0)) aY = 0;
 		if (aRadius === void(0)) aRadius = 0;
 
-		var nodes;
 		var d = aElement.ownerDocument;
-		var expression = 'descendant::text()[not(ancestor::*[local-name() = "text-shadow-box"])]';
-		try {
-			nodes = d.evaluate(expression, aElement, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-		}
-		catch(e) {
-			nodes = document.evaluate(expression, aElement, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-		}
+		var nodes = this.getNodesByXPath('descendant::text()[not(ancestor::*[local-name() = "text-shadow-box"])]', aElement);
 		if (!nodes.snapshotLength) return;
 
 		var bases = [];
-		var wrapper = d.createElementNS(this.XMLNS, 'text-shadow-box');
+		var wrapper = d.createElement('text-shadow-box');
 		wrapper.setAttribute('style', 'position: relative;');
-		var innerWrapper = d.createElementNS(this.XMLNS, 'text-shadow-base');
+		var innerWrapper = d.createElement('text-shadow-base');
 		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 		{
 			var node = nodes.snapshotItem(i);
@@ -359,36 +397,21 @@ var TextShadowService = {
 			bases.push(newWrapper);
 		}
 
-		var shadow = d.createElementNS(this.XMLNS, 'text-shadow');
-		var shadows = d.createElementNS(this.XMLNS, 'text-shadow-container');
+		var shadow = d.createElement('text-shadow');
+		var shadows = d.createElement('text-shadow-container');
 		shadows.setAttribute('style', 'display: none;');
 		var display;
 		for (var i in bases)
 		{
-			var parentBox = bases[i];
-			while ((display = d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('display')) != 'block' && display != '-moz-box' && parentBox.parentNode)
-			{
-				parentBox = parentBox.parentNode;
-			}
-			if (parentBox == d) parentBox = d.documentElement;
-
-			var boxWidth = d.getBoxObjectFor(parentBox).width
-					- this.getComputedPixels(parentBox, 'padding-left')
-					- this.getComputedPixels(parentBox, 'padding-right')
-					- this.getComputedPixels(bases[i], 'padding-left')
-					- this.getComputedPixels(bases[i], 'padding-right')
-					- this.getComputedPixels(bases[i], 'margin-left')
-					- this.getComputedPixels(bases[i], 'margin-right');
-			var height = d.getBoxObjectFor(parentBox).height
-				- this.getComputedPixels(parentBox, 'padding-top')
-				- this.getComputedPixels(parentBox, 'padding-bottom');
+			var info = this.getSizeBox(bases[i]);
+			var parentBox = info.sizeBox;
 
 			var color = d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('color');
 			if (!aColor && color == 'transparent') continue;
 
-			var x = this.convertToPixels(aX, bases[i], boxWidth);
-			var y = this.convertToPixels(aY, bases[i], height);
-			var radius = this.convertToPixels(aRadius, bases[i], boxWidth);
+			var x = this.convertToPixels(aX, bases[i], info.boxWidth);
+			var y = this.convertToPixels(aY, bases[i], info.boxHeight);
+			var radius = this.convertToPixels(aRadius, bases[i], info.boxWidth);
 
 			var quality = 0;
 			var gap;
@@ -440,21 +463,15 @@ var TextShadowService = {
 			}
 			bases[i].appendChild(newShadows);
 			bases[i].firstChild.setAttribute('style', 'position: relative; z-index: 2;');
-			d.defaultView.setTimeout(function(aSelf, aNode, aShadows, aBoxWidth) {
+			d.defaultView.setTimeout(function(aSelf, aNode, aShadows) {
 				aNode.setAttribute('style', 'display: block;');
-				aNode.ownerDocument.defaultView.setTimeout(function(aSelf, aNode, aShadows, aBoxWidth) {
+				aNode.ownerDocument.defaultView.setTimeout(function(aSelf, aNode, aShadows) {
 					aNode.setAttribute('style', 'position: relative; z-index: 2;');
-
-					var width = Math.min(
-							aNode.ownerDocument.getBoxObjectFor(aNode.parentNode).width
-								- aSelf.getComputedPixels(aNode.parentNode, 'padding-left')
-								- aSelf.getComputedPixels(aNode.parentNode, 'padding-right'),
-							aBoxWidth
-						);
+					var info = aSelf.getSizeBox(aNode.parentNode || aNode);
 					aShadows.setAttribute('style',
 						'position: absolute !important; display: block !important;'
 						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
-						+ 'width: ' + width + 'px !important;'
+						+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;'
 						+ 'top: ' + yOffset + 'px !important;'
 						+ 'bottom: ' + (-yOffset) + 'px !important;'
 						+ 'left: ' + xOffset + 'px !important;'
@@ -462,11 +479,35 @@ var TextShadowService = {
 						+ 'z-index: 1 !important;'
 						+ 'color: ' + (aColor || color) + ' !important;'
 					);
-				}, 0, aSelf, aNode, aShadows, aBoxWidth);
-			}, 0, this, bases[i].firstChild, newShadows, boxWidth);
+				}, 0, aSelf, aNode, aShadows);
+			}, 0, this, bases[i].firstChild, newShadows);
 		}
 	},
- 
+	 
+	redrawShadow : function(aElement) 
+	{
+		var d = aElement.ownerDocument;
+
+		var bases = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-base"]', aElement);
+		if (!bases.snapshotLength) return;
+
+		var shadows = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-container"]', aElement);
+		if (!shadows.snapshotLength) return;
+
+		for (var i = 0, maxi = shadows.snapshotLength; i < maxi; i++)
+		{
+			var info = this.getSizeBox(bases[i]);
+			var parentBox = info.sizeBox;
+			var width     = Math.min(info.width, info.boxWidth);
+			shadows[i].setAttribute('style',
+				shadows[i].getAttribute('style').replace(
+					/\bwidth\s*:\s*[0-9]px(\s*!\s*important)\s*;?/,
+					'width: ' + width + 'px !important;'
+				)
+			);
+		}
+	},
+  
 	startDrawShadow : function(aFrame) 
 	{
 		if (
@@ -488,17 +529,69 @@ var TextShadowService = {
 		if (!cues.length) return;
 
 		var cue = cues[0];
+		var info = cue.wrappedJSObject.__textshadow__info;
 		cues = cues.splice(0, 1);
 
-// dump(cue.selector+' => '+cue.node+'\n');
-
-		aSelf.drawShadow(cue.node, cue.info.x, cue.info.y, cue.info.radius, cue.info.color);
-
-// dump(aFrame.location.href+' / '+cues.length+'\n');
+		aSelf.drawShadow(cue, info.x, info.y, info.radius, info.color);
 
 		aSelf.startDrawShadow(aFrame);
 	},
   
+	updateShadowForFrame : function(aFrame, aReason) 
+	{
+		if (!this.shadowEnabled) return;
+
+		var frames = aFrame.frames;
+		for (var i = 0, maxi = frames.length; i < maxi; i++)
+		{
+			this.updateShadowForFrame(frames[i], aReason);
+		}
+		switch (aReason)
+		{
+			case this.UPDATE_PAGELOAD:
+				var styles = aFrame.document.styleSheets;
+				for (var i = 0, maxi = styles.length; i < maxi; i++)
+				{
+					if (
+						styles[i].disabled ||
+						styles[i].type != 'text/css' ||
+						!/(screen|projection)/i.test(styles[i].media.mediaText)
+						)
+						continue;
+
+					var rules = styles[i].cssRules;
+					for (var j = 0, maxj = rules.length; j < maxj; j++)
+					{
+						if (
+							rules[j].type != rules[j].STYLE_RULE ||
+							!/\btext-shadow\s*:/.test(rules[j].cssText)
+							)
+							continue;
+						this.collectTextShadowTargets(aFrame, rules[j]);
+					}
+					aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
+						return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
+					});
+					this.startDrawShadow(aFrame);
+				}
+				break;
+
+			case this.UPDATE_RESIZE:
+				if (!aFrame.wrappedJSObject.__textshadow__drawCues || !aFrame.document.wrappedJSObject.__textshadow__targets) return;
+
+				var nodes = aFrame.document.wrappedJSObject.__textshadow__targets;
+				for (var i = 0, maxi = nodes.length; i < maxi; i++)
+				{
+					aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes[i]);
+				}
+				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
+					return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
+				});
+				this.startDrawShadow(aFrame);
+				break;
+		}
+	},
+	 
 	collectTextShadowTargets : function(aFrame, aCSSRule) 
 	{
 		var selectors = aCSSRule.selectorText.split(',');
@@ -539,6 +632,8 @@ var TextShadowService = {
 		}
 		if ((!x && !y && !radius) || color == 'transparent') return;
 
+		if (!aFrame.document.wrappedJSObject.__textshadow__targets)
+			aFrame.document.wrappedJSObject.__textshadow__targets = [];
 		if (!aFrame.wrappedJSObject.__textshadow__drawCues)
 			aFrame.wrappedJSObject.__textshadow__drawCues = [];
 
@@ -549,61 +644,24 @@ var TextShadowService = {
 			{
 				if (
 					!nodes[j].textContent ||
-					/^\s*$/.test(nodes[j].textContent)
+					/^\s*$/.test(nodes[j].textContent) ||
+					nodes[j].wrappedJSObject.__textshadow__done
 					)
 					continue;
 
+				nodes[j].wrappedJSObject.__textshadow__done = true;
 				nodes[j].wrappedJSObject.__textshadow__info = {
 					x      : x,
 					y      : y,
 					radius : radius,
 					color  : color
 				};
-				aFrame.wrappedJSObject.__textshadow__drawCues.push({
-					selector : selectors[i],
-					node     : nodes[j],
-					info     : nodes[j].wrappedJSObject.__textshadow__info
-				});
+				aFrame.document.wrappedJSObject.__textshadow__targets.push(nodes[j]);
+				aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes[j]);
 			}
 		}
 	},
- 
-	updateShadowForFrame : function(aFrame, aReason) 
-	{
-		var frames = aFrame.frames;
-		for (var i = 0, maxi = frames.length; i < maxi; i++)
-		{
-			this.updateShadowForFrame(frames[i], aReason);
-		}
-		if (aReason == this.UPDATE_PAGELOAD) {
-			var styles = aFrame.document.styleSheets;
-			for (var i = 0, maxi = styles.length; i < maxi; i++)
-			{
-				if (
-					styles[i].disabled ||
-					styles[i].type != 'text/css' ||
-					!/(screen|projection)/i.test(styles[i].media.mediaText)
-					)
-					continue;
-
-				var rules = styles[i].cssRules;
-				for (var j = 0, maxj = rules.length; j < maxj; j++)
-				{
-					if (
-						rules[j].type != rules[j].STYLE_RULE ||
-						!/\btext-shadow\s*:/.test(rules[j].cssText)
-						)
-						continue;
-					this.collectTextShadowTargets(aFrame, rules[j]);
-				}
-				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
-					return aFrame.document.getBoxObjectFor(aA.node).screenY - aFrame.document.getBoxObjectFor(aB.node).screenY;
-				});
-				this.startDrawShadow(aFrame);
-			}
-		}
-	},
- 
+  	
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
 		var w = aTab.linkedBrowser.contentWindow;
@@ -682,8 +740,8 @@ var TextShadowService = {
 		this.addPrefListener(listener);
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
 
-		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
-		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
+//		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
+//		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 
 		delete addTabMethod;
 		delete removeTabMethod;
@@ -721,6 +779,8 @@ var TextShadowService = {
 		delete aTabBrowser.__textshadow__prefListener.mTabBrowser;
 		delete aTabBrowser.__textshadow__prefListener;
 
+//		window.removeEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
+
 		var tabs = aTabBrowser.mTabContainer.childNodes;
 		for (var i = 0, maxi = tabs.length; i < maxi; i++)
 		{
@@ -749,7 +809,7 @@ var TextShadowService = {
 	},
    
 /* Event Handling */ 
-	
+	 
 	handleEvent : function(aEvent) 
 	{
 		switch (aEvent.type)

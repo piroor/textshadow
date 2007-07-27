@@ -397,18 +397,33 @@ var TextShadowService = {
 			var quality = 0;
 			var gap;
 			do {
+				gap = quality;
 				quality++;
-				gap = Math.max(quality, 1);
-				radius = Math.max(Math.max(radius, 1) / gap, 1);
+				radius = Math.max(Math.max(radius, 1) / quality, 1);
 			}
-			while ((radius * radius) > 30)
+			while (radius != 1 && (radius * radius) > 30)
 
 			var opacity = 1 / (radius+1);
-			var xOffset = x - Math.round(radius/2);
-			var yOffset = y - Math.round(radius/2);
+			var xOffset = x - radius;
+			var yOffset = y - radius;
 
-			if (d.defaultView.getComputedStyle(bases[i], null).getPropertyValue('display') == 'inline')
-				yOffset -= Math.round((this.getComputedPixels(bases[i], 'line-height') - this.getComputedPixels(bases[i], 'font-size')) / 2);
+			switch (d.defaultView.getComputedStyle(bases[i].parentNode, null).getPropertyValue('display'))
+			{
+				case 'none':
+					return;
+				case 'inline':
+					yOffset -= Math.round((this.getComputedPixels(bases[i].parentNode, 'line-height') - this.getComputedPixels(bases[i].parentNode, 'font-size')) / 2);
+					break;
+				default:
+					yOffset += this.getComputedPixels(bases[i].parentNode, 'padding-top');
+					break;
+			}
+
+			if (
+				d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none' &&
+				this.getComputedPixels(parentBox, 'border-top-width') == 0
+				)
+				yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
 			for (var j = 0, maxj = radius; j < maxj; j++)
 			{
@@ -471,7 +486,7 @@ var TextShadowService = {
 		aSelf.startDrawShadow(aFrame);
 	},
   
-	applyTextShadowRule : function(aFrame, aCSSRule) 
+	collectTextShadowTargets : function(aFrame, aCSSRule) 
 	{
 		var selectors = aCSSRule.selectorText.split(',');
 
@@ -536,7 +551,6 @@ var TextShadowService = {
 					node     : nodes[j],
 					info     : nodes[j].wrappedJSObject.__textshadow__info
 				});
-				this.startDrawShadow(aFrame);
 			}
 		}
 	},
@@ -567,8 +581,12 @@ var TextShadowService = {
 						!/\btext-shadow\s*:/.test(rules[j].cssText)
 						)
 						continue;
-					this.applyTextShadowRule(aFrame, rules[j]);
+					this.collectTextShadowTargets(aFrame, rules[j]);
 				}
+				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
+					return aFrame.document.getBoxObjectFor(aA.node).screenY - aFrame.document.getBoxObjectFor(aB.node).screenY;
+				});
+				this.startDrawShadow(aFrame);
 			}
 		}
 	},

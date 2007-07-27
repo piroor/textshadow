@@ -656,16 +656,22 @@ var TextShadowService = {
 				!/(screen|projection)/i.test(styles[i].media.mediaText)
 				)
 				continue;
-
 			var rules = styles[i].cssRules;
 			for (var j = 0, maxj = rules.length; j < maxj; j++)
 			{
-				if (
-					rules[j].type != rules[j].STYLE_RULE ||
-					!/\btext-shadow\s*:/.test(rules[j].cssText)
-					)
-					continue;
-				this.collectTargetsFromCSSRule(aFrame, rules[j]);
+				switch (rules[j].type)
+				{
+					case rules[j].MEDIA_RULE:
+						if (/(screen|projection)/i.test(rules[j].media.mediaText))
+							this.collectTargetsFromCSSRules(aFrame, rules[j].cssRules);
+						break;
+					case rules[j].STYLE_RULE:
+						if (/\btext-shadow\s*:/.test(rules[j].cssText))
+							this.collectTargetsFromCSSRule(aFrame, rules[j]);
+						break;
+					default:
+						continue;
+				}
 			}
 		}
 

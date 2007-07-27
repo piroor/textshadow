@@ -9,6 +9,7 @@
                    em:creator="SHIMODA Hiroshi"
                    em:description="Provides text-shadow support."
                    em:homepageURL="http://piro.sakura.ne.jp/xul/textshadow/"
+                   em:iconURL="chrome://textshadow/content/icon.png"
                    em:optionsURL="chrome://textshadow/content/config.xul"
                    em:updateURL="http://piro.sakura.ne.jp/xul/xul.rdf.en">
     <em:targetApplication>

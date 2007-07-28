@@ -362,7 +362,12 @@ var TextShadowService = {
  
 	getComputedPixels : function(aNode, aProperty) 
 	{
-		return Number(aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty).match(/^[-0-9\.]+/));
+		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
+
+		// line-height
+		if (value.toLowerCase() == 'normal') return this.getComputedPixels(aNode, 'font-size');
+
+		return Number(value.match(/^[-0-9\.]+/));
 	},
   
 /* draw shadow */ 

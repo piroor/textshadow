@@ -549,20 +549,10 @@ var TextShadowService = {
 	{
 		var d = aElement.ownerDocument;
 		var originals = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-original" or local-name() = "TEXT-SHADOW-ORIGINAL"]', aElement);
-
-		var range = d.createRange();
-		range.selectNodeContents(aElement);
-		var contents = range.extractContents();
-
 		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
 			var node = originals.snapshotItem(i);
-			range.selectNodeContents(node.parentNode);
-			range.setStartAfter(node);
-			range.deleteContents();
 		}
-		aElement.appendChild(contents);
-		range.detach();
 	},
   
 	startDrawShadow : function(aFrame) 

@@ -497,7 +497,7 @@ var TextShadowService = {
 					newShadow.appendChild(boxes[i].firstChild.firstChild.cloneNode(true));
 					newShadow.setAttribute('style',
 						'position: absolute !important; display: block !important;'
-						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
+						+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
 						+ 'opacity: ' + opacity + ' !important;'
 						+ 'top: ' + (j+gap) + 'px !important;'
 						+ 'bottom: ' + (-j-gap) + 'px !important;'

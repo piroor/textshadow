@@ -417,6 +417,13 @@ var TextShadowService = {
 			{
 				var node = textNodes.snapshotItem(i);
 				if (/^\s+$/.test(node.nodeValue)) continue;
+
+				var preWhiteSpaces = node.nodeValue.match(/^\s+/);
+				if (preWhiteSpaces) {
+					node.nodeValue = node.nodeValue.replace(/^\s*/, '');
+					node.parentNode.insertBefore(d.createTextNode(preWhiteSpaces), node);
+				}
+
 				var newWrapper = wrapper.cloneNode(true);
 				var newInnerWrapper = innerWrapper.cloneNode(true);
 				newWrapper.appendChild(newInnerWrapper);
@@ -439,7 +446,6 @@ var TextShadowService = {
 		shadow.setAttribute('style', 'display: none;');
 
 		var part = d.createElement('text-shadow-part');
-		var display;
 		for (var i in boxes)
 		{
 			var info = this.getSizeBox(boxes[i]);
@@ -447,9 +453,6 @@ var TextShadowService = {
 
 			var color = d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('color');
 			if (!aColor && color == 'transparent') continue;
-
-			var boxObject = d.getBoxObjectFor(boxes[i].parentNode);
-			var parentBoxObject = d.getBoxObjectFor(parentBox);
 
 			var x = this.convertToPixels(aX, boxes[i], info.boxWidth);
 			var y = this.convertToPixels(aY, boxes[i], info.boxHeight);
@@ -472,15 +475,24 @@ var TextShadowService = {
 
 			if (radius != 1) opacity *= 0.35; // to show like Safari
 
-			switch (d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display'))
+			var context = d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display');
+			var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? boxes[i].parentNode : boxes[i]);
+			if (
+				context != 'inline' &&
+				this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i]).snapshotLength
+				)
+				context = 'inline';
+
+			switch (context)
 			{
 				case 'none':
 					return;
 				case 'inline':
 					var lineHeight = this.getComputedPixels(boxes[i].parentNode, 'line-height');
 					yOffset -= Math.round((lineHeight - this.getComputedPixels(boxes[i].parentNode, 'font-size')) / 2);
-					if (boxObject.height > lineHeight * 1.5) { // inlineÇ≈ê‹ÇËï‘Ç≥ÇÍÇƒÇ¢ÇÈèÍçá
-						var delta = boxObject.screenX - parentBoxObject.screenX + this.getComputedPixels(parentBox, 'padding-left');
+					var parentBoxObject = d.getBoxObjectFor(parentBox);
+					if (originalBoxObject.height > lineHeight * 1.5) { // inlineÇ≈ê‹ÇËï‘Ç≥ÇÍÇƒÇ¢ÇÈèÍçá
+						var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
 						xOffset -= delta;
 						info.indent += delta;
 						info.width = info.boxWidth;
@@ -502,8 +514,8 @@ var TextShadowService = {
 				yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
 			if (
-				parentBox == boxes[i].parentNode ||
-				!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i].parentNode).snapshotLength
+				parentBox == boxes[i].parentNode &&
+				!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i]).snapshotLength
 				)
 				xOffset -= info.indent;
 
@@ -616,6 +628,9 @@ var TextShadowService = {
 		catch(e) {
 		}
 
+		if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
+			cue.removeAttribute('id');
+
 		aSelf.startDrawShadow(aFrame);
 	},
   
@@ -663,7 +678,12 @@ var TextShadowService = {
 				}
 				var self = this;
 				cues = cues.concat(nodesArray.map(function(aItem) {
-						return aItem.getAttribute('id');
+						var id = aItem.getAttribute('id');
+						if (!id) {
+							id = self.ID_PREFIX+parseInt(Math.random() * 1000000);
+							aItem.setAttribute('id', id);
+						}
+						return id;
 					}));
 				rootNode.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 				this.startDrawShadow(aFrame);

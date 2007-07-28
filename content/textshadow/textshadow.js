@@ -654,7 +654,12 @@ var TextShadowService = {
 				value = value.replace(shadow.color, '');
 			}
 
-			value = value.replace(/^\s+|\s+$/g, '').split(/\s+/);
+			value = value
+					.replace(/^\s+|\s+$/g, '')
+					.split(/\s+/)
+					.map(function(aItem) {
+						return (aItem || '').replace(/^0[a-z]*$/, '') ? aItem : 0 ;
+					});
 			switch (value.length)
 			{
 				case 1:

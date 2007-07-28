@@ -433,6 +433,9 @@ var TextShadowService = {
 			var color = d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('color');
 			if (!aColor && color == 'transparent') continue;
 
+			var boxObject = d.getBoxObjectFor(boxes[i].parentNode);
+			var parentBoxObject = d.getBoxObjectFor(parentBox);
+
 			var x = this.convertToPixels(aX, boxes[i], info.boxWidth);
 			var y = this.convertToPixels(aY, boxes[i], info.boxHeight);
 			var radius = this.convertToPixels(aRadius, boxes[i], info.boxWidth);
@@ -455,7 +458,14 @@ var TextShadowService = {
 				case 'none':
 					return;
 				case 'inline':
-					yOffset -= Math.round((this.getComputedPixels(boxes[i].parentNode, 'line-height') - this.getComputedPixels(boxes[i].parentNode, 'font-size')) / 2);
+					var lineHeight = this.getComputedPixels(boxes[i].parentNode, 'line-height');
+					yOffset -= Math.round((lineHeight - this.getComputedPixels(boxes[i].parentNode, 'font-size')) / 2);
+					if (boxObject.height > lineHeight * 1.5) { // inline‚ÅÜ‚è•Ô‚³‚ê‚Ä‚¢‚éê‡
+						var delta = boxObject.screenX - parentBoxObject.screenX + this.getComputedPixels(parentBox, 'padding-left');
+						xOffset -= delta;
+						info.indent += delta;
+						info.width = info.boxWidth;
+					}
 					break;
 				default:
 					if (this.positionQuality < 1) break;
@@ -472,7 +482,10 @@ var TextShadowService = {
 			if (d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
 				yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
-			if (!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i]).snapshotLength)
+			if (
+				parentBox == boxes[i].parentNode ||
+				!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i].parentNode).snapshotLength
+				)
 				xOffset -= info.indent;
 
 			var newShadows = shadow.cloneNode(true);
@@ -484,7 +497,7 @@ var TextShadowService = {
 					newShadow.appendChild(boxes[i].firstChild.firstChild.cloneNode(true));
 					newShadow.setAttribute('style',
 						'position: absolute !important; display: block !important;'
-						+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
+						+ 'margin: 0 !important; padding: 0 !important; text-indent: 0 !important;'
 						+ 'opacity: ' + opacity + ' !important;'
 						+ 'top: ' + (j+gap) + 'px !important;'
 						+ 'bottom: ' + (-j-gap) + 'px !important;'

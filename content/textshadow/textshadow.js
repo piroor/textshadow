@@ -8,6 +8,12 @@ var TextShadowService = {
 	UPDATE_INIT     : 0,
 	UPDATE_PAGELOAD : 1,
 	UPDATE_RESIZE   : 2,
+
+	ID_PREFIX       : '_moz-textshadow-target-',
+	ATTR_DRAW_CUE   : '_moz-textshadow-cue',
+	ATTR_DRAW_TIMER : '_moz-textshadow-draw-timer',
+	ATTR_STYLE      : '_moz-textshadow-style',
+	ATTR_SCANNED    : '_moz-textshadow-scanned',
 	 
 /* Utilities */ 
 	 
@@ -367,6 +373,17 @@ var TextShadowService = {
 
 		return Number(value.match(/^[-0-9\.]+/));
 	},
+ 
+	getJSValueFromAttribute : function(aElement, aAttribute) 
+	{
+		try {
+			var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
+			var value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
+		}
+		catch(e) {
+		}
+		return value;
+	},
  	 
 /* draw shadow */ 
 	 
@@ -447,13 +464,13 @@ var TextShadowService = {
 			}
 			while (radius != 1 && (radius * radius) > 30)
 
-			if (radius != 1) radius *= 1.5; // to show like Safari
+			if (radius != 1) radius *= 1.2; // to show like Safari
 
 			var opacity = 1 / radius;
 			var xOffset = 0;
 			var yOffset = 0;
 
-			if (radius != 1) opacity *= 0.4; // to show like Safari
+			if (radius != 1) opacity *= 0.35; // to show like Safari
 
 			switch (d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display'))
 			{
@@ -552,41 +569,48 @@ var TextShadowService = {
 		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
 			var node = originals.snapshotItem(i);
+			while (node.nextSibling) node.parentNode.removeChild(node.nextSibling);
 		}
 	},
   
 	startDrawShadow : function(aFrame) 
 	{
-		if (
-			!aFrame.wrappedJSObject.__textshadow__drawCues ||
-			!aFrame.wrappedJSObject.__textshadow__drawCues.length
-			)
+		var node = aFrame.document.documentElement;
+		var cues = this.getJSValueFromAttribute(node, this.ATTR_DRAW_CUE);
+		if (!cues || !cues.length)
 			return;
 
-		if (aFrame.wrappedJSObject.__textshadow__drawTimer) {
-			aFrame.clearTimeout(aFrame.wrappedJSObject.__textshadow__drawTimer);
+		var timerId = node.getAttribute(this.ATTR_DRAW_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
 		}
-		aFrame.wrappedJSObject.__textshadow__drawTimer = aFrame.setTimeout(this.drawOneShadow, 0, this, aFrame);
+		timerId = aFrame.setTimeout(this.drawOneShadow, 0, this, aFrame);
+		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
 	 
 	drawOneShadow : function(aSelf, aFrame) 
 	{
-		var cues = aFrame.wrappedJSObject.__textshadow__drawCues;
-		if (!cues.length) return;
+		var node = aFrame.document.documentElement;
+		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_DRAW_CUE);
+		if (!cues || !cues.length) {
+			node.removeAttribute(aSelf.ATTR_DRAW_TIMER);
+			return;
+		}
 
-		var cue = cues[0];
-		cues = cues.splice(0, 1);
+		var cue = aFrame.document.getElementById(cues.splice(0, 1));
+		node.setAttribute(aSelf.ATTR_DRAW_CUE, cues.toSource());
 
 		if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
 			aSelf.clearShadow(cue);
 		}
 
 		try {
-			var sandbox = Components.utils.Sandbox(aFrame.location.href);
-			var info = Components.utils.evalInSandbox(cue.getAttribute('_moz-textshadow-style'), sandbox);
-			for (var i = 0, maxi = info.length; i < maxi; i++)
-			{
-				aSelf.drawShadow(cue, info[i].x, info[i].y, info[i].radius, info[i].color);
+			var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
+			if (info) {
+				for (var i = 0, maxi = info.length; i < maxi; i++)
+				{
+					aSelf.drawShadow(cue, info[i].x, info[i].y, info[i].radius, info[i].color);
+				}
 			}
 		}
 		catch(e) {
@@ -604,26 +628,44 @@ var TextShadowService = {
 		{
 			this.updateShadowForFrame(frames[i], aReason);
 		}
+
+		var d = aFrame.document;
+		var rootNode = d.documentElement;
+		var cues = this.getJSValueFromAttribute(rootNode, this.ATTR_DRAW_CUE);
+		if (!cues) cues = [];
 		switch (aReason)
 		{
 			case this.UPDATE_PAGELOAD:
-				this.collectTargets(aFrame);
-				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
-					return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
+				var nodes = this.collectTargets(aFrame);
+				nodes.sort(function(aA, aB) {
+					return d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
 				});
+				var self = this;
+				cues = cues.concat(nodes.map(function(aItem) {
+						var id = aItem.getAttribute('id');
+						if (!id) {
+							id = self.ID_PREFIX+parseInt(Math.random() * 1000000);
+							aItem.setAttribute('id', id);
+						}
+						return id;
+					}));
+				rootNode.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 				this.startDrawShadow(aFrame);
 				break;
 
 			case this.UPDATE_RESIZE:
-				var nodes = this.getNodesByXPath('//descendant::*[@_moz-textshadow-style]', aFrame.document);
+				var nodes = this.getNodesByXPath('//descendant::*[@'+this.ATTR_STYLE+']', d);
 				if (!nodes.snapshotLength) return;
+				var nodesArray = [];
 				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 				{
-					aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes.snapshotItem(i));
+					nodesArray.push(nodes.snapshotItem(i));
 				}
-				aFrame.wrappedJSObject.__textshadow__drawCues.sort(function(aA, aB) {
-					return aFrame.document.getBoxObjectFor(aA).screenY - aFrame.document.getBoxObjectFor(aB).screenY;
-				});
+				var self = this;
+				cues = cues.concat(nodesArray.map(function(aItem) {
+						return aItem.getAttribute('id');
+					}));
+				rootNode.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 				this.startDrawShadow(aFrame);
 				break;
 		}
@@ -688,8 +730,7 @@ var TextShadowService = {
  
 	collectTargets : function(aFrame) 
 	{
-		if (!aFrame.wrappedJSObject.__textshadow__drawCues)
-			aFrame.wrappedJSObject.__textshadow__drawCues = [];
+		var foundNodes = [];
 
 		var styles = aFrame.document.styleSheets;
 		for (var i = 0, maxi = styles.length; i < maxi; i++)
@@ -707,11 +748,11 @@ var TextShadowService = {
 				{
 					case rules[j].MEDIA_RULE:
 						if (/(screen|projection)/i.test(rules[j].media.mediaText))
-							this.collectTargetsFromCSSRules(aFrame, rules[j].cssRules);
+							foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[j].cssRules));
 						break;
 					case rules[j].STYLE_RULE:
 						if (/\btext-shadow\s*:/.test(rules[j].cssText))
-							this.collectTargetsFromCSSRule(aFrame, rules[j]);
+							foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[j]));
 						break;
 					default:
 						continue;
@@ -725,7 +766,7 @@ var TextShadowService = {
 			var node = nodes.snapshotItem(i);
 			var decs = node.getAttribute('style').match(/\btext-shadow\s*:[^;]*/gi);
 			if (
-				node.hasAttribute('_moz-textshadow-scanned') ||
+				node.hasAttribute(this.ATTR_SCANNED) ||
 				!decs ||
 				!decs.length
 				)
@@ -736,17 +777,20 @@ var TextShadowService = {
 			{
 				var value = this.parseTextShadowValue(String(decs[j]).replace(/text-shadow\s*:\s*/i, ''));
 				if (!value.length) continue;
-				node.setAttribute('_moz-textshadow-style', value.toSource());
+				node.setAttribute(this.ATTR_STYLE, value.toSource());
 			}
-			if (!node.hasAttribute('_moz-textshadow-style')) continue;
+			if (!node.hasAttribute(this.ATTR_STYLE)) continue;
 
-			node.setAttribute('_moz-textshadow-scanned', true);
-			aFrame.wrappedJSObject.__textshadow__drawCues.push(node);
+			node.setAttribute(this.ATTR_SCANNED, true);
+			foundNodes.push(node);
 		}
+		return foundNodes;
 	},
 	 
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
+		var foundNodes = [];
+
 		var selectors = aCSSRule.selectorText.split(',');
 
 		var x      = 0,
@@ -772,15 +816,16 @@ var TextShadowService = {
 				if (
 					!nodes[j].textContent ||
 					/^\s*$/.test(nodes[j].textContent) ||
-					nodes[j].hasAttribute('_moz-textshadow-scanned')
+					nodes[j].hasAttribute(this.ATTR_SCANNED)
 					)
 					continue;
 
-				nodes[j].setAttribute('_moz-textshadow-scanned', true);
-				nodes[j].setAttribute('_moz-textshadow-style', value.toSource());
-				aFrame.wrappedJSObject.__textshadow__drawCues.push(nodes[j]);
+				nodes[j].setAttribute(this.ATTR_SCANNED, true);
+				nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
+				foundNodes.push(nodes[j]);
 			}
 		}
+		return foundNodes;
 	},
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 

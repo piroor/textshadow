@@ -449,9 +449,13 @@ var TextShadowService = {
 			}
 			while (radius != 1 && (radius * radius) > 30)
 
+			if (radius != 1) radius *= 1.5;
+
 			var opacity = 1 / radius;
 			var xOffset = 0;
 			var yOffset = 0;
+
+			if (radius != 1) opacity *= 0.5;
 
 			switch (d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display'))
 			{

@@ -15,7 +15,7 @@ var TextShadowService = {
 	 
 	get browser() 
 	{
-		return gBrowser;
+		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
 	},
  
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
@@ -799,6 +799,10 @@ var TextShadowService = {
 
 		window.removeEventListener('load', this, false);
 
+		var appcontent = document.getElementById('appcontent');
+		appcontent.addEventListener('SubBrowserAdded', this, false);
+		appcontent.addEventListener('SubBrowserRemoveRequest', this, false);
+
 		this.addPrefListener(this);
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
 
@@ -884,6 +888,10 @@ var TextShadowService = {
 
 		window.removeEventListener('unload', this, false);
 
+		var appcontent = document.getElementById('appcontent');
+		appcontent.removeEventListener('SubBrowserAdded', this, false);
+		appcontent.removeEventListener('SubBrowserRemoveRequest', this, false);
+
 		this.removePrefListener(this);
 	},
 	
@@ -932,8 +940,12 @@ var TextShadowService = {
 				this.init();
 				break;
 
-			case 'unload':
-				this.destroy();
+			case 'SubBrowserAdded':
+				this.initTabBrowser(aEvent.originalTarget.browser);
+				break;
+
+			case 'SubBrowserRemoveRequest':
+				this.destroyTabBrowser(aEvent.originalTarget.browser);
 				break;
 		}
 	},

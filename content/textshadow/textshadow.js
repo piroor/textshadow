@@ -2,8 +2,6 @@ var TextShadowService = {
 	ID       : 'textshadow@piro.sakura.ne.jp',
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
-	__textshadow__drawCues : [],
-
 	shadowEnabled : false,
 	positionQuality : 1,
 
@@ -369,7 +367,7 @@ var TextShadowService = {
 
 		return Number(value.match(/^[-0-9\.]+/));
 	},
-  
+ 	 
 /* draw shadow */ 
 	 
 	drawShadow : function(aElement, aX, aY, aRadius, aColor) 
@@ -449,13 +447,13 @@ var TextShadowService = {
 			}
 			while (radius != 1 && (radius * radius) > 30)
 
-			if (radius != 1) radius *= 1.5;
+			if (radius != 1) radius *= 1.5; // to show like Safari
 
 			var opacity = 1 / radius;
 			var xOffset = 0;
 			var yOffset = 0;
 
-			if (radius != 1) opacity *= 0.5;
+			if (radius != 1) opacity *= 0.4; // to show like Safari
 
 			switch (d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display'))
 			{
@@ -547,28 +545,24 @@ var TextShadowService = {
 		}
 	},
 	 
-	redrawShadow : function(aElement) 
+	clearShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
+		var originals = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-original" or local-name() = "TEXT-SHADOW-ORIGINAL"]', aElement);
 
-		var bases = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-base" or local-name() = "TEXT-SHADOW-BASE"]', aElement);
-		if (!bases.snapshotLength) return;
+		var range = d.createRange();
+		range.selectNodeContents(aElement);
+		var contents = range.extractContents();
 
-		var shadows = this.getNodesByXPath('descendant::*[local-name() = "text-shadow" or local-name() = "TEXT-SHADOW"]', aElement);
-		if (!shadows.snapshotLength) return;
-
-		for (var i = 0, maxi = shadows.snapshotLength; i < maxi; i++)
+		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
-			var info = this.getSizeBox(bases[i]);
-			var parentBox = info.sizeBox;
-			var width     = Math.min(info.width, info.boxWidth);
-			shadows[i].setAttribute('style',
-				shadows[i].getAttribute('style').replace(
-					/\bwidth\s*:\s*[0-9]px(\s*!\s*important)\s*;?/,
-					'width: ' + width + 'px !important;'
-				)
-			);
+			var node = originals.snapshotItem(i);
+			range.selectNodeContents(node.parentNode);
+			range.setStartAfter(node);
+			range.deleteContents();
 		}
+		aElement.appendChild(contents);
+		range.detach();
 	},
   
 	startDrawShadow : function(aFrame) 
@@ -579,11 +573,10 @@ var TextShadowService = {
 			)
 			return;
 
-		if (aFrame.drawTextShadowTimer) {
-			aFrame.clearTimeout(aFrame.drawTextShadowTimer);
-			aFrame.drawTextShadowTimer = null;
+		if (aFrame.wrappedJSObject.__textshadow__drawTimer) {
+			aFrame.clearTimeout(aFrame.wrappedJSObject.__textshadow__drawTimer);
 		}
-		aFrame.drawTextShadowTimer = aFrame.setTimeout(this.drawOneShadow, 0, this, aFrame);
+		aFrame.wrappedJSObject.__textshadow__drawTimer = aFrame.setTimeout(this.drawOneShadow, 0, this, aFrame);
 	},
 	 
 	drawOneShadow : function(aSelf, aFrame) 
@@ -593,6 +586,10 @@ var TextShadowService = {
 
 		var cue = cues[0];
 		cues = cues.splice(0, 1);
+
+		if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
+			aSelf.clearShadow(cue);
+		}
 
 		try {
 			var sandbox = Components.utils.Sandbox(aFrame.location.href);
@@ -628,7 +625,6 @@ var TextShadowService = {
 				break;
 
 			case this.UPDATE_RESIZE:
-				if (!aFrame.wrappedJSObject.__textshadow__drawCues) return;
 				var nodes = this.getNodesByXPath('//descendant::*[@_moz-textshadow-style]', aFrame.document);
 				if (!nodes.snapshotLength) return;
 				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
@@ -796,7 +792,7 @@ var TextShadowService = {
 			}
 		}
 	},
-  	 
+   
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
 		var w = aTab.linkedBrowser.contentWindow;
@@ -880,8 +876,8 @@ var TextShadowService = {
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
 
-//		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
-//		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
+		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
+		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 
 		delete addTabMethod;
 		delete removeTabMethod;
@@ -923,7 +919,7 @@ var TextShadowService = {
 		delete aTabBrowser.__textshadow__prefListener.mTabBrowser;
 		delete aTabBrowser.__textshadow__prefListener;
 
-//		window.removeEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
+		window.removeEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 
 		var tabs = aTabBrowser.mTabContainer.childNodes;
 		for (var i = 0, maxi = tabs.length; i < maxi; i++)

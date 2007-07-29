@@ -638,6 +638,11 @@ var TextShadowService = {
 		if (aY === void(0)) aY = 0;
 		if (aRadius === void(0)) aRadius = 0;
 
+		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
+			this.clearShadow(aElement);
+			return;
+		}
+
 		var d = aElement.ownerDocument;
 		var boxes = [];
 
@@ -823,7 +828,8 @@ var TextShadowService = {
 		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
 			var node = originals.snapshotItem(i);
-			while (node.nextSibling) node.parentNode.removeChild(node.nextSibling);
+			node.parentNode.parentNode.insertBefore(node.removeChild(node.firstChild), node.parentNode);
+			node.parentNode.parentNode.removeChild(node.parentNode);
 		}
 	},
   
@@ -969,39 +975,42 @@ var TextShadowService = {
 					color  : null
 				};
 
-			if (value.length == 1 && value[0].toLowerCase() == 'none') continue;
+			if (value.length > 1 || value[0].toLowerCase() != 'none') {
+				value = value.replace(/\//g, ',');
+				/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(value);
+				var currentColor = RegExp.$1;
+				if (currentColor) {
+					shadow.color = currentColor.replace(/^\s+/, '');
+					value = value.replace(shadow.color, '');
+				}
 
-			value = value.replace(/\//g, ',');
-			/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(value);
-			var currentColor = RegExp.$1;
-			if (currentColor) {
-				shadow.color = currentColor.replace(/^\s+/, '');
-				value = value.replace(shadow.color, '');
+				value = value
+						.replace(/^\s+|\s+$/g, '')
+						.split(/\s+/)
+						.map(function(aItem) {
+							return (aItem || '').replace(/^0[a-z]*$/, '') ? aItem : 0 ;
+						});
+				switch (value.length)
+				{
+					case 1:
+						shadow.x = shadow.y = value[0];
+						break;
+					case 2:
+						shadow.x = value[0];
+						shadow.y = value[1];
+						break;
+					case 3:
+						shadow.x = value[0];
+						shadow.y = value[1];
+						shadow.radius = value[2];
+						break;
+				}
+				if ((!shadow.x && !shadow.y && !shadow.radius) || shadow.color == 'transparent') {
+					shadow.x = shadow.y = shadow.radius = 0;
+					shadow.color = null;
+				}
 			}
 
-			value = value
-					.replace(/^\s+|\s+$/g, '')
-					.split(/\s+/)
-					.map(function(aItem) {
-						return (aItem || '').replace(/^0[a-z]*$/, '') ? aItem : 0 ;
-					});
-			switch (value.length)
-			{
-				case 1:
-					shadow.x = shadow.y = value[0];
-					break;
-				case 2:
-					shadow.x = value[0];
-					shadow.y = value[1];
-					break;
-				case 3:
-					shadow.x = value[0];
-					shadow.y = value[1];
-					shadow.radius = value[2];
-					break;
-			}
-
-			if ((!shadow.x && !shadow.y && !shadow.radius) || shadow.color == 'transparent') continue;
 			array.push(shadow);
 		}
 

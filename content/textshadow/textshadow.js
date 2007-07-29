@@ -675,8 +675,8 @@ var TextShadowService = {
 			var original = d.createElement(this.TAG_ORIGINAL);
 			original.setAttribute('style',
 				'visibility: hidden !important;'
-				+ '-moz-user-select: none !important;'
-				+ '-moz-user-focus: none !important;');
+				+ '-moz-user-select: -moz-none !important;'
+				+ '-moz-user-focus: ignore !important;');
 			for (var i = 0, maxi = textNodes.snapshotLength; i < maxi; i++)
 			{
 				var node = textNodes.snapshotItem(i);
@@ -823,8 +823,8 @@ var TextShadowService = {
 				+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
 				+ 'left: ' + (xOffset+x-(radius / 2)) + 'px !important;'
 				+ 'right: ' + (-(xOffset+x-(radius / 2))) + 'px !important;'
-				+ '-moz-user-select: none !important;'
-				+ '-moz-user-focus: none !important;'
+				+ '-moz-user-select: -moz-none !important;'
+				+ '-moz-user-focus: ignore !important;'
 				+ 'text-decoration: none !important;'
 				+ 'color: ' + (aColor || color) + ' !important;'
 			);

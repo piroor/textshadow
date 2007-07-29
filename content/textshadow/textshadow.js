@@ -420,6 +420,7 @@ var TextShadowService = {
 								}
 								catch(e) {
 								}
+							}
 							return isLink && isVisited ? 1 : -1 ;
 						}, found);
 						break;
@@ -844,6 +845,10 @@ var TextShadowService = {
 		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
 		{
 			var cue = aFrame.document.getElementById(cues.splice(0, 1));
+			if (!cue) {
+				i--;
+				continue;
+			}
 
 			if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
 				aSelf.clearShadow(cue);
@@ -889,7 +894,10 @@ var TextShadowService = {
 			case this.UPDATE_PAGELOAD:
 				var nodes = this.collectTargets(aFrame);
 				nodes.sort(function(aA, aB) {
-					return d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
+					if (typeof aA == 'string') aA = d.getElementById(aA);
+					if (typeof aB == 'string') aB = d.getElementById(aB);
+					return (!aA || !aB) ? 0 :
+							d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
 				});
 				var self = this;
 				cues = cues.concat(nodes.map(function(aItem) {
@@ -913,7 +921,10 @@ var TextShadowService = {
 					nodesArray.push(nodes.snapshotItem(i));
 				}
 				cues.sort(function(aA, aB) {
-					return d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
+					if (typeof aA == 'string') aA = d.getElementById(aA);
+					if (typeof aB == 'string') aB = d.getElementById(aB);
+					return (!aA || !aB) ? 0 :
+							d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
 				});
 				var self = this;
 				cues = cues.concat(nodesArray.map(function(aItem) {

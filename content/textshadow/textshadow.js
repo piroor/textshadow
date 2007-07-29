@@ -9,6 +9,7 @@ var TextShadowService = {
 	UPDATE_INIT     : 0,
 	UPDATE_PAGELOAD : 1,
 	UPDATE_RESIZE   : 2,
+	UPDATE_REBUILD  : 3,
 
 	ID_PREFIX       : '_moz-textshadow-target-',
 
@@ -54,7 +55,7 @@ var TextShadowService = {
 		}
 		return null;
 	},
- 	
+ 
 	getNodesByXPath : function(aExpression, aContext, aLive) 
 	{
 		var d = aContext.ownerDocument || aContext;
@@ -835,17 +836,52 @@ var TextShadowService = {
 			boxes[i].appendChild(f);
 		}
 	},
-	 
+	
 	clearShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
+		var sel = d.defaultView.getSelection();
+		var startContainer;
+		var startOffset = -1;
+		var endContainer;
+		var endOffset = -1;
+		var rebuildSelection = false;
+		if (sel.rangeCount) {
+			rebuildSelection = true;
+			var range = sel.getRangeAt(0);
+			startContainer = range.startContainer;
+			startOffset    = range.startOffset;
+			endContainer   = range.endContainer;
+			endOffset      = range.endOffset;
+			var compareRange = d.createRange();
+			compareRange.selectNode(aElement);
+			if (range.compareBoundaryPoints(Range.START_TO_START, compareRange) > -1) {
+				startContainer = null;
+			}
+			if (range.compareBoundaryPoints(Range.END_TO_END, compareRange) < 1) {
+				endContainer = null;
+			}
+			compareRange.detach();
+		}
+
 		var originals = this.getNodesByXPath('descendant::*['+this.TAG_ORIGINAL_CONDITION+']', aElement);
+		var parent;
 		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
 			var node = originals.snapshotItem(i);
-			node.parentNode.parentNode.insertBefore(node.removeChild(node.firstChild), node.parentNode);
-			node.parentNode.parentNode.removeChild(node.parentNode);
+			if (!node.parentNode || !node.parentNode.parentNode) continue;
+			parent = node.parentNode.parentNode;
+			parent.insertBefore(node.removeChild(node.firstChild), node.parentNode);
+			parent.removeChild(node.parentNode);
 		}
+
+		if (!rebuildSelection || !parent) return;
+
+		var text = parent.firstChild;
+		var newSel = d.createRange();
+		newSel.setStart(startContainer || text, startOffset);
+		newSel.setEnd(endContainer || text, endOffset);
+		sel.addRange(newSel);
 	},
   
 	startDrawShadow : function(aFrame) 
@@ -862,7 +898,7 @@ var TextShadowService = {
 		timerId = aFrame.setTimeout(this.delayedDrawShadow, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
-	 
+	
 	delayedDrawShadow : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -941,6 +977,7 @@ var TextShadowService = {
 				break;
 
 			case this.UPDATE_RESIZE:
+			case this.UPDATE_REBUILD:
 				var nodes = this.getNodesByXPath('//descendant::*[@'+this.ATTR_STYLE+']', d);
 				if (!nodes.snapshotLength) return;
 				var nodesArray = [];
@@ -968,7 +1005,7 @@ var TextShadowService = {
 				break;
 		}
 	},
-	 
+	
 	parseTextShadowValue : function(aValue) 
 	{
 		var array = [];
@@ -1151,8 +1188,63 @@ var TextShadowService = {
 		}
 	},
   
+/* override "cmd_copy" command */ 
+	 
+	goDoCommand : function(aCommand) 
+	{
+		var shouldRebuild = (aCommand == 'cmd_copy');
+		var cleared = false;
+		if (shouldRebuild) {
+			var frame = document.commandDispatcher.focusedWindow;
+			if (frame == window) frame = this.browser.contentWindow;
+			var sel = frame.getSelection();
+			if (sel && sel.rangeCount) {
+				var range = sel.getRangeAt(0);
+				var temp = frame.document.createElement('div');
+				temp.appendChild(range.cloneContents());
+				var expression = [
+						'descendant::*['+TextShadowService.TAG_ORIGINAL_CONDITION+' or ',
+							TextShadowService.TAG_BASE_CONDITION+' or ',
+							TextShadowService.TAG_SHADOW_CONDITION+' or ',
+							TextShadowService.TAG_SHADOW_PART_CONDITION+']'
+					].join('')
+				var boxes = TextShadowService.getNodesByXPath(expression, temp);
+				if (boxes.snapshotLength) {
+					expression = [
+						'following::*['+TextShadowService.TAG_ORIGINAL_CONDITION+' or ',
+							TextShadowService.TAG_BASE_CONDITION+' or ',
+							TextShadowService.TAG_SHADOW_CONDITION+' or ',
+							TextShadowService.TAG_SHADOW_PART_CONDITION+']'
+					].join('')
+					boxes = TextShadowService.getNodesByXPath(expression, range.startContainer);
+					for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
+					{
+						var box = null;
+						try {
+							box = boxes.snapshotItem(i);
+						}
+						catch(e) {
+						}
+						if (!box) continue;
+						if (!sel.containsNode(box, false)) {
+							break;
+						}
+						cleared = true;
+						TextShadowService.clearShadow(TextShadowService.getNodesByXPath('ancestor-or-self::*['+TextShadowService.TAG_BOX_CONDITION+']', box).snapshotItem(0));
+						sel = frame.getSelection();
+					}
+				}
+			}
+		}
+		var retVal = window.__textshadow__goDoCommand.apply(window, arguments);
+		if (shouldRebuild && cleared) {
+			TextShadowService.updateShadowForFrame(frame, TextShadowService.UPDATE_REBUILD);
+		}
+		return retVal;
+	},
+ 	 
 /* Initializing */ 
-	
+	 
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
@@ -1162,6 +1254,9 @@ var TextShadowService = {
 		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+'" or local-name() = "'+this.TAG_BASE.toUpperCase()+'"';
 		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW.toUpperCase()+'"';
 		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART.toUpperCase()+'"';
+
+		window.__textshadow__goDoCommand = window.goDoCommand;
+		window.goDoCommand = this.goDoCommand;
 
 		window.removeEventListener('load', this, false);
 
@@ -1176,7 +1271,7 @@ var TextShadowService = {
 
 		this.initialized = true;
 	},
-	
+	 
 	initTabBrowser : function(aTabBrowser) 
 	{
 		aTabBrowser.thumbnailUpdateCount = 0;

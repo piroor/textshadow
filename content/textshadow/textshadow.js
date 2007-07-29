@@ -2,7 +2,7 @@ var TextShadowService = {
 	ID       : 'textshadow@piro.sakura.ne.jp',
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
-	shadowEnabled : false,
+	shadowEnabled   : false,
 	positionQuality : 1,
 
 	UPDATE_INIT     : 0,
@@ -602,7 +602,7 @@ var TextShadowService = {
 		}
 		return value;
 	},
- 	 
+  
 /* draw shadow */ 
 	 
 	drawShadow : function(aElement, aX, aY, aRadius, aColor) 
@@ -727,9 +727,6 @@ var TextShadowService = {
 					boxes[i].removeChild(dummy2);
 					break;
 			}
-
-			if (d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
-				yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
 			if (
 				parentBox == boxes[i].parentNode &&
@@ -895,6 +892,9 @@ var TextShadowService = {
 				{
 					nodesArray.push(nodes.snapshotItem(i));
 				}
+				cues.sort(function(aA, aB) {
+					return d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
+				});
 				var self = this;
 				cues = cues.concat(nodesArray.map(function(aItem) {
 						var id = aItem.getAttribute('id');
@@ -915,6 +915,7 @@ var TextShadowService = {
 		var array = [];
 
 		aValue = String(aValue)
+				.replace(/^\s+|\s+$/gi, '')
 				.replace(/\s*!\s*important/i, '')
 				.replace(/\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3/%4)')
 				.replace(/\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3)')
@@ -929,6 +930,8 @@ var TextShadowService = {
 					radius : 0,
 					color  : null
 				};
+
+			if (value.length == 1 && value[0].toLowerCase() == 'none') continue;
 
 			value = value.replace(/\//g, ',');
 			/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(value);
@@ -984,23 +987,7 @@ var TextShadowService = {
 				)
 				)
 				continue;
-			var rules = styles[i].cssRules;
-			for (var j = 0, maxj = rules.length; j < maxj; j++)
-			{
-				switch (rules[j].type)
-				{
-					case rules[j].MEDIA_RULE:
-						if (/(screen|projection)/i.test(rules[j].media.mediaText))
-							foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[j].cssRules));
-						break;
-					case rules[j].STYLE_RULE:
-						if (/\btext-shadow\s*:/.test(rules[j].cssText))
-							foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[j]));
-						break;
-					default:
-						continue;
-				}
-			}
+			foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, styles[i].cssRules));
 		}
 
 		var nodes = this.getNodesByXPath('//descendant::*[contains(@style, "text-shadow")]', aFrame.document);
@@ -1030,6 +1017,29 @@ var TextShadowService = {
 		return foundNodes;
 	},
 	 
+	collectTargetsFromCSSRules : function(aFrame, aCSSRules) 
+	{
+		var foundNodes = [];
+		var rules = aCSSRules;
+		for (var i = 0, maxi = rules.length; i < maxi; i++)
+		{
+			switch (rules[i].type)
+			{
+				case rules[i].MEDIA_RULE:
+					if (/(^\s*$|all|screen|projection)/i.test(rules[i].media.mediaText))
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
+					break;
+				case rules[i].STYLE_RULE:
+					if (/\btext-shadow\s*:/.test(rules[i].cssText))
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i]));
+					break;
+				default:
+					continue;
+			}
+		}
+		return foundNodes;
+	},
+ 
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var foundNodes = [];
@@ -1042,7 +1052,7 @@ var TextShadowService = {
 
 			value = this.parseTextShadowValue(props.getPropertyValue('text-shadow'));
 		}
-		if (!value.length) return;
+		if (!value.length) return foundNodes;
 
 		for (var i = 0, maxi = selectors.length; i < maxi; i++)
 		{
@@ -1063,13 +1073,12 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-   
+  	 
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
 	},
-
  
 	updateAllShadows : function(aTabBrowser, aReason) 
 	{

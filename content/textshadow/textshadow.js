@@ -24,14 +24,15 @@ var TextShadowService = {
  
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
  
-	getNodesByXPath : function(aExpression, aContext) 
+	getNodesByXPath : function(aExpression, aContext, aLive) 
 	{
 		var d = aContext.ownerDocument || aContext;
+		var type = aLive ? XPathResult.ORDERED_NODE_ITERATOR_TYPE : XPathResult.ORDERED_NODE_SNAPSHOT_TYPE ;
 		try {
-			nodes = d.evaluate(aExpression, aContext, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+			nodes = d.evaluate(aExpression, aContext, null, type, null);
 		}
 		catch(e) {
-			nodes = document.evaluate(aExpression, aContext, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+			nodes = document.evaluate(aExpression, aContext, null, type, null);
 		}
 		return nodes;
 	},
@@ -70,11 +71,12 @@ var TextShadowService = {
  
 	getElementsBySelector : function(aSelector, aTargetDocument) 
 	{
+		var self = this;
+
 		var tokens = aSelector
 					.replace(/(^|\b)\w+\||\*\|/g, '')
 					.replace(/\s+/g, ' ')
 					.replace(/\s*([>+])\s*/g, '$1');
-		if (/:[^:]+$/.test(aSelector)) return [];
 //dump(tokens+'\n');
 
 		tokens = tokens.split('');
@@ -86,7 +88,7 @@ var TextShadowService = {
 			'attribute'   : '',
 			'id'          : '',
 			'class'       : '',
-			'psedo'       : '',
+			'pseud'       : '',
 			'combinators' : ' ',
 			'clear'       : function () {
 				this.element     = '';
@@ -94,7 +96,7 @@ var TextShadowService = {
 				this.attribute   = '';
 				this.id          = '';
 				this.class       = '';
-				this.psedo       = '';
+				this.pseud       = '';
 				this.combinators = '';
 			}
 		};
@@ -204,22 +206,23 @@ var TextShadowService = {
 					}
 				}
 			}
+
+			var getElementsByCondition = function ( callback, targetElements ) {
+				var elements = [];
+				var elmCount = 0;
+				for ( var i = 0, len = targetElements.length; i < len; i++ ) {
+					var element = targetElements[i];
+					if ( callback(element) > 0 ) {
+						elements[elmCount++] = element;
+					}
+				}
+				return elements;
+			}
+
 			// Attribute
 			if ( buf.attributes.length != 0 ) {
 				var attributes = buf.attributes;
 				var targets = found;
-
-				var getElementsByAttribute = function ( callback, targetElements ) {
-					var elements = [];
-					var elmCount = 0;
-					for ( var i = 0, len = targetElements.length; i < len; i++ ) {
-						var element = targetElements[i];
-						if ( callback(element) > 0 ) {
-							elements[elmCount++] = element;
-						}
-					}
-					return elements;
-				}
 
 				for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ ) {
 					var attribute = attributes[i];
@@ -246,29 +249,189 @@ var TextShadowService = {
 					}
 
 					if ( i == 0 ) {
-						found = getElementsByAttribute( checkFunc, targets );
+						found = getElementsByCondition( checkFunc, targets );
 					}
 					else {
-						found = getElementsByAttribute( checkFunc, found );
+						found = getElementsByCondition( checkFunc, found );
 					}
 				}
 
 			}
-	/*
-			// Psedo-class
-			if ( buf.psedo.length != 0 ) {
+			// Pseud-class
+			if ( buf.pseud.length != 0 ) {
+				var getFirstLetters = function(targetElements) {
+					var elements = [];
+					var first = aTargetDocument.createElement('_moz-first-letter');
+					for (var i = 0, len = targetElements.length; i < len; i++)
+					{
+						var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]', targetElements[i]);
+						if (firsts.snapshotLength) {
+							elements.push(firsts.snapshotItem(0));
+						}
+						else {
+							var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+							var node = text.snapshotItem(0);
+							node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
+							var newFirst = first.cloneNode(true)
+							node.parentNode.insertBefore(newFirst, node)
+								.appendChild(aTargetDocument.createTextNode(RegExp.$1));
+							elements.push(newFirst);
+						}
+					}
+					return elements;
+				}
 
+				var getFirstLines = function(targetElements) {
+					var elements = [];
+					var d = aTargetDocument;
+					var first = d.createElement('_moz-first-line');
+					var dummy = d.createElement('_moz-dummy-box');
+					var dummy1 = dummy.cloneNode(true);
+					var dummy2 = dummy.cloneNode(true);
+					var range = d.createRange();
+					for (var i = 0, len = targetElements.length; i < len; i++)
+					{
+						var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]', targetElements[i]);
+						if (firsts.snapshotLength) {
+							elements.push(firsts.snapshotItem(0));
+						}
+						else {
+							var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+							var lineEnd = false;
+							for (var j = 0, maxj = text.snapshotLength; j < maxj; j++)
+							{
+								var node = text.snapshotItem(j);
+								var parent = node.parentNode;
+								var firstPart = first.cloneNode(true);
+								firstPart.appendChild(d.createTextNode(''));
+								parent.insertBefore(dummy1, node);
+								var y = d.getBoxObjectFor(dummy1).screenY;
+								for (var k = 0, maxk = node.nodeValue.length; k < maxk; k++)
+								{
+									range.selectNodeContents(parent);
+									range.setStart(dummy1.nextSibling, k);
+									range.collapse(true);
+									range.insertNode(dummy2);
+									range.setStartBefore(parent.firstChild);
+									if (d.getBoxObjectFor(dummy2).screenY != y) {
+										firstPart.firstChild.nodeValue = firstPart.firstChild.nodeValue.substring(0, firstPart.firstChild.nodeValue.length-1);
+										parent.removeChild(dummy2);
+										parent.normalize();
+										lineEnd = true;
+										break;
+									}
+									firstPart.firstChild.nodeValue += parent.textContent.charAt(k);
+									parent.removeChild(dummy2);
+									parent.normalize();
+								}
+								parent.removeChild(dummy1);
+								if (firstPart.firstChild.nodeValue.length &&
+									!/^\s*$/.test(firstPart.firstChild.nodeValue)) {
+									range.selectNodeContents(parent);
+									range.insertNode(firstPart);
+									range.selectNodeContents(parent);
+									range.setStartAfter(firstPart);
+									range.setEnd(firstPart.nextSibling, firstPart.firstChild.nodeValue.length);
+									range.deleteContents();
+									elements.push(firstPart);
+								}
+								if (lineEnd) break;
+							}
+						}
+					}
+					range.detach();
+					return elements;
+				}
+
+				switch (buf.pseud)
+				{
+					case 'first-letter':
+						found = getFirstLetters(found);
+						break;
+
+					case 'first-line':
+						found = getFirstLines(found);
+						break;
+
+					case 'first-child':
+						found = getElementsByCondition(function(aElement) {
+							return self.getNodesByXPath('preceding-sibling::*', aElement).snapshotLength ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'last-child':
+						found = getElementsByCondition(function(aElement) {
+							return self.getNodesByXPath('following-sibling::*', aElement).snapshotLength ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'first-of-type':
+						found = getElementsByCondition(function(aElement) {
+							return self.getNodesByXPath('preceding-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'last-of-type':
+						found = getElementsByCondition(function(aElement) {
+							return self.getNodesByXPath('following-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'only-child':
+						found = getElementsByCondition(function(aElement) {
+							return (
+								self.getNodesByXPath('preceding-sibling::*', aElement).snapshotLength ||
+								self.getNodesByXPath('following-sibling::*', aElement).snapshotLength
+							) ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'only-of-type':
+						found = getElementsByCondition(function(aElement) {
+							return (
+								self.getNodesByXPath('preceding-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ||
+								self.getNodesByXPath('following-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength
+							) ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'empty':
+						found = getElementsByCondition(function(aElement) {
+							return aElement.hasChildNodes() ? -1 : 1 ;
+						}, found);
+						break;
+
+					case 'link':
+					case 'visited':
+						found = getElementsByCondition(function(aElement) {
+							return aElement.localName.toLowerCase() == 'a' ? 1 : -1 ;
+						}, found);
+						break;
+
+					default:
+						found = [];
+						break;
+				}
 			}
-			// Psedo-elements
-	*/
+			// Pseud-elements
 			foundElements = found;
 			buf.clear();
 		};
 
 
+		var escaped = false;
 		for ( var i = 0, len = tokens.length; i < len; i++  ) {
 			var token = tokens[i];
+			if (escaped) {
+				buf[mode] += token;
+				escaped = false;
+				continue;
+			}
 			switch ( token ) {
+				case '\\':
+					escaped = true;
+					break;
+
 				// selector
 				case '[':
 					mode = 'attribute';
@@ -287,11 +450,9 @@ var TextShadowService = {
 				case '#':
 					mode = 'id';
 					break;
-				/*
 				case ':':
-					mode = 'psedo';
+					mode = 'pseud';
 					break;
-				*/
 				// combinators
 				case ' ':
 					search();
@@ -758,7 +919,11 @@ var TextShadowService = {
 			if (
 				styles[i].disabled ||
 				styles[i].type != 'text/css' ||
-				!/(screen|projection)/i.test(styles[i].media.mediaText)
+				(
+					styles[i].media.mediaText &&
+					!/^\s*$/.test(styles[i].media.mediaText) &&
+					!/(all|screen|projection)/i.test(styles[i].media.mediaText)
+				)
 				)
 				continue;
 			var rules = styles[i].cssRules;
@@ -810,14 +975,7 @@ var TextShadowService = {
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var foundNodes = [];
-
 		var selectors = aCSSRule.selectorText.split(',');
-
-		var x      = 0,
-			y      = 0,
-			radius = 0,
-			color  = null;
-
 		var props = aCSSRule.style;
 		var value;
 		for (var i = 0, maxi = props.length; i < maxi; i++)

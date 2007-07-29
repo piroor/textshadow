@@ -2,8 +2,9 @@ var TextShadowService = {
 	ID       : 'textshadow@piro.sakura.ne.jp',
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
-	shadowEnabled   : false,
-	positionQuality : 1,
+	shadowEnabled     : false,
+	positionQuality   : 1,
+	renderingUnitSize : 1,
 
 	UPDATE_INIT     : 0,
 	UPDATE_PAGELOAD : 1,
@@ -812,11 +813,11 @@ var TextShadowService = {
 		if (timerId) {
 			aFrame.clearTimeout(timerId);
 		}
-		timerId = aFrame.setTimeout(this.drawOneShadow, 0, this, aFrame);
+		timerId = aFrame.setTimeout(this.delayedDrawShadow, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
 	 
-	drawOneShadow : function(aSelf, aFrame) 
+	delayedDrawShadow : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
 		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_DRAW_CUE);
@@ -825,27 +826,31 @@ var TextShadowService = {
 			return;
 		}
 
-		var cue = aFrame.document.getElementById(cues.splice(0, 1));
-		node.setAttribute(aSelf.ATTR_DRAW_CUE, cues.toSource());
+		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
+		{
+			var cue = aFrame.document.getElementById(cues.splice(0, 1));
 
-		if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
-			aSelf.clearShadow(cue);
-		}
+			if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
+				aSelf.clearShadow(cue);
+			}
 
-		try {
-			var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
-			if (info) {
-				for (var i = 0, maxi = info.length; i < maxi; i++)
-				{
-					aSelf.drawShadow(cue, info[i].x, info[i].y, info[i].radius, info[i].color);
+			try {
+				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
+				if (info) {
+					for (var j = 0, maxj = info.length; j < maxj; j++)
+					{
+						aSelf.drawShadow(cue, info[j].x, info[j].y, info[j].radius, info[j].color);
+					}
 				}
 			}
-		}
-		catch(e) {
+			catch(e) {
+			}
+
+			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
+				cue.removeAttribute('id');
 		}
 
-		if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
-			cue.removeAttribute('id');
+		node.setAttribute(aSelf.ATTR_DRAW_CUE, cues.toSource());
 
 		aSelf.startDrawShadow(aFrame);
 	},
@@ -1155,6 +1160,7 @@ var TextShadowService = {
 		this.addPrefListener(listener);
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
+		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
 
 		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
@@ -1277,6 +1283,10 @@ var TextShadowService = {
 
 			case 'extensions.textshadow.position.quality':
 				this.positionQuality = value;
+				break;
+
+			case 'extensions.textshadow.renderingUnitSize':
+				this.renderingUnitSize = Math.max(value, 1);
 				break;
 
 			default:

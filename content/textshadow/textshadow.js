@@ -11,10 +11,19 @@ var TextShadowService = {
 	UPDATE_RESIZE   : 2,
 
 	ID_PREFIX       : '_moz-textshadow-target-',
+
+	TAG_BOX         : '_moz-textshadow-box',
+	TAG_ORIGINAL    : '_moz-textshadow-original',
+	TAG_BASE        : '_moz-textshadow-base',
+	TAG_SHADOW      : '_moz-textshadow-shadow',
+	TAG_SHADOW_PART : '_moz-textshadow-shadow-part',
+	TAG_DUMMY       : '_moz-textshadow-dummy-box',
+
 	ATTR_DRAW_CUE   : '_moz-textshadow-cue',
 	ATTR_DRAW_TIMER : '_moz-textshadow-draw-timer',
 	ATTR_STYLE      : '_moz-textshadow-style',
 	ATTR_SCANNED    : '_moz-textshadow-scanned',
+	ATTR_CACHE      : '_moz-textshadow',
 	 
 /* Utilities */ 
 	 
@@ -632,7 +641,7 @@ var TextShadowService = {
 		var d = aElement.ownerDocument;
 		var boxes = [];
 
-		var shadowBoxes = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', aElement);
+		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.TAG_BOX_CONDITION+']', aElement);
 		if (shadowBoxes.snapshotLength) {
 			for (var i = 0, maxi = shadowBoxes.snapshotLength; i < maxi; i++)
 			{
@@ -640,11 +649,11 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"])]', aElement);
-			var wrapper = d.createElement('text-shadow-box');
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.TAG_BOX_CONDITION+'])]', aElement);
+			var wrapper = d.createElement(this.TAG_BOX');
 			wrapper.setAttribute('style', 'position: relative;');
-			var innerWrapper = d.createElement('text-shadow-original');
-			innerWrapper.setAttribute('style',
+			var original = d.createElement(this.TAG_ORIGINAL);
+			original.setAttribute('style',
 				'visibility: hidden !important;'
 				+ '-moz-user-select: none !important;'
 				+ '-moz-user-focus: none !important;');
@@ -660,27 +669,27 @@ var TextShadowService = {
 				}
 
 				var newWrapper = wrapper.cloneNode(true);
-				var newInnerWrapper = innerWrapper.cloneNode(true);
-				newWrapper.appendChild(newInnerWrapper);
-				newInnerWrapper.appendChild(node.cloneNode(true));
+				var newOriginal = original.cloneNode(true);
+				newWrapper.appendChild(newOriginal);
+				newOriginal.appendChild(node.cloneNode(true));
 				node.parentNode.insertBefore(newWrapper, node);
 				node.parentNode.removeChild(node);
 				boxes.push(newWrapper);
 			}
 		}
 
-		var dummy1 = d.createElement('text-shadow-dummy-box');
+		var dummy1 = d.createElement(this.TAG_DUMMY);
 		dummy1.appendChild(d.createTextNode('!'));
 		var dummy2 = dummy1.cloneNode(true);
 		dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
 		dummy2.setAttribute('style', 'visibility: hidden;');
 
 
-		var shadow = d.createElement('text-shadow');
-		shadow.setAttribute('_moz-text-shadow', ({ x : aX, y : aY, radius : aRadius, color : aColor }).toSource());
+		var shadow = d.createElement(this.TAG_SHADOW);
+		shadow.setAttribute(this.ATTR_CACHE, ({ x : aX, y : aY, radius : aRadius, color : aColor }).toSource());
 		shadow.setAttribute('style', 'display: none;');
 
-		var part = d.createElement('text-shadow-part');
+		var part = d.createElement(this.TAG_SHADOW_PART);
 		for (var i in boxes)
 		{
 			var info = this.getSizeBox(boxes[i]);
@@ -778,7 +787,7 @@ var TextShadowService = {
 
 			var newContent = null;
 			if (boxes[i].childNodes.length < 2) {
-				newContent = d.createElement('text-shadow-base');
+				newContent = d.createElement(this.TAG_BASE);
 				newContent.appendChild(boxes[i].firstChild.firstChild.cloneNode(true));
 				newContent.setAttribute('style', style
 					+ 'z-index: 2 !important;'
@@ -810,7 +819,7 @@ var TextShadowService = {
 	clearShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
-		var originals = this.getNodesByXPath('descendant::*[local-name() = "text-shadow-original" or local-name() = "TEXT-SHADOW-ORIGINAL"]', aElement);
+		var originals = this.getNodesByXPath('descendant::*['+this.TAG_ORIGINAL_CONDITION+']', aElement);
 		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
 		{
 			var node = originals.snapshotItem(i);
@@ -850,7 +859,7 @@ var TextShadowService = {
 				continue;
 			}
 
-			if (aSelf.getNodesByXPath('descendant::*[local-name() = "text-shadow-box" or local-name() = "TEXT-SHADOW-BOX"]', cue).snapshotLength) {
+			if (aSelf.getNodesByXPath('descendant::*['+aSelf.TAG_SHADOW_CONDITION+']', cue).snapshotLength) {
 				aSelf.clearShadow(cue);
 			}
 
@@ -1125,6 +1134,12 @@ var TextShadowService = {
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
+
+		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+" or local-name() = "'+this.TAG_BOX+'"';
+		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+" or local-name() = "'+this.TAG_ORIGINAL+'"';
+		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+" or local-name() = "'+this.TAG_BASE+'"';
+		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+" or local-name() = "'+this.TAG_SHADOW+'"';
+		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+" or local-name() = "'+this.TAG_SHADOW_PART+'"';
 
 		window.removeEventListener('load', this, false);
 

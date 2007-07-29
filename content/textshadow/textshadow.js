@@ -408,6 +408,63 @@ var TextShadowService = {
 						}, found);
 						break;
 
+					case 'target':
+						found = getElementsByCondition(function(aElement) {
+							(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+							return (RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1)) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'enabled':
+						found = getElementsByCondition(function(aElement) {
+							var enabled = (aElement.getAttribute('enabled') || '').toLowerCase();
+							var disabled = (aElement.getAttribute('disabled') || '').toLowerCase();
+							return (
+								(enabled && (enabled == 'true' || enabled == 'enabled')) ||
+								(disabled && (disabled == 'false' || (disabled != 'true' && disabled != 'disabled')))
+								) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'disabled':
+						found = getElementsByCondition(function(aElement) {
+							var enabled = (aElement.getAttribute('enabled') || '').toLowerCase();
+							var disabled = (aElement.getAttribute('disabled') || '').toLowerCase();
+							return (
+								(!enabled || (enabled != 'true' && enabled != 'enabled')) ||
+								(disabled && (disabled == 'true' || disabled == 'disabled'))
+								) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'checked':
+						found = getElementsByCondition(function(aElement) {
+							var checked = (aElement.getAttribute('checked') || '').toLowerCase();
+							var selected = (aElement.getAttribute('selected') || '').toLowerCase();
+							return (
+								(checked && (checked == 'true' || checked == 'checked')) ||
+								(selected && (selected == 'true' || selected == 'selected'))
+								) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'indeterminate':
+						found = getElementsByCondition(function(aElement) {
+							var checked = (aElement.getAttribute('checked') || '').toLowerCase();
+							var selected = (aElement.getAttribute('selected') || '').toLowerCase();
+							return (
+								(!checked || (checked != 'true' && checked != 'checked')) ||
+								(!selected || (selected != 'true' && selected != 'checked'))
+								) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'root':
+						found = getElementsByCondition(function(aElement) {
+							return aElement == aTargetDocument.documentElement ? 1 : -1 ;
+						}, found);
+						break;
+
 					default:
 						found = [];
 						break;
@@ -725,6 +782,7 @@ var TextShadowService = {
 				+ 'right: ' + (-(xOffset+x-(radius / 2))) + 'px !important;'
 				+ '-moz-user-select: none !important;'
 				+ '-moz-user-focus: none !important;'
+				+ 'text-decoration: none !important;'
 				+ 'color: ' + (aColor || color) + ' !important;'
 			);
 

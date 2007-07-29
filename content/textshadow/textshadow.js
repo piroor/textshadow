@@ -859,9 +859,7 @@ var TextShadowService = {
 				continue;
 			}
 
-			if (aSelf.getNodesByXPath('descendant::*['+aSelf.TAG_SHADOW_CONDITION+']', cue).snapshotLength) {
-				aSelf.clearShadow(cue);
-			}
+			aSelf.clearShadow(cue);
 
 			try {
 				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
@@ -1135,11 +1133,11 @@ var TextShadowService = {
 	{
 		if (!('gBrowser' in window)) return;
 
-		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+'" or local-name() = "'+this.TAG_BOX+'"';
-		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+'" or local-name() = "'+this.TAG_ORIGINAL+'"';
-		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+'" or local-name() = "'+this.TAG_BASE+'"';
-		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW+'"';
-		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART+'"';
+		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+'" or local-name() = "'+this.TAG_BOX.toUpperCase()+'"';
+		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+'" or local-name() = "'+this.TAG_ORIGINAL.toUpperCase()+'"';
+		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+'" or local-name() = "'+this.TAG_BASE.toUpperCase()+'"';
+		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW.toUpperCase()+'"';
+		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART.toUpperCase()+'"';
 
 		window.removeEventListener('load', this, false);
 

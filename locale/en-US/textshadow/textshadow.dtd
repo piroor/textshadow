@@ -2,6 +2,9 @@
 
 <!ENTITY extensions.textshadow.enabled  "Show text with drop-shadow">
 
+<!ENTITY extensions.textshadow.renderingUnitSize.before "Draw">
+<!ENTITY extensions.textshadow.renderingUnitSize.after  "shadows per frames">
+
 <!ENTITY config.position.quality.caption  "Correction of shadow position">
 <!ENTITY extensions.textshadow.position.quality.0  "Quick, Ugly">
 <!ENTITY extensions.textshadow.position.quality.1  "Slow, Beauty">

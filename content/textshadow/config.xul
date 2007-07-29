@@ -16,6 +16,9 @@
 		<preference id="extensions.textshadow.enabled"
 			name="extensions.textshadow.enabled"
 			type="bool"/>
+		<preference id="extensions.textshadow.renderingUnitSize"
+			name="extensions.textshadow.renderingUnitSize"
+			type="int"/>
 		<preference id="extensions.textshadow.position.quality"
 			name="extensions.textshadow.position.quality"
 			type="int"/>
@@ -24,6 +27,19 @@
 	<checkbox id="extensions.textshadow.enabled-check"
 		preference="extensions.textshadow.enabled"
 		label="&extensions.textshadow.enabled;"/>
+
+	<hbox align="center">
+		<label class="shrinked-label"
+			value="&extensions.textshadow.renderingUnitSize.before;"
+			control="extensions.textshadow.renderingUnitSize-textbox"/>
+		<textbox id="extensions.textshadow.renderingUnitSize-textbox"
+			preference="extensions.textshadow.renderingUnitSize"
+			style="width: 4em;"
+			type="number" min="1" increment="1"/>
+		<label class="shrinked-label"
+			value="&extensions.textshadow.renderingUnitSize.after;"
+			control="extensions.textshadow.renderingUnitSize-textbox"/>
+	</hbox>
 
 	<groupbox>
 		<caption label="&config.position.quality.caption;"/>

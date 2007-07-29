@@ -403,9 +403,24 @@ var TextShadowService = {
 						break;
 
 					case 'link':
-					case 'visited':
 						found = getElementsByCondition(function(aElement) {
-							return aElement.localName.toLowerCase() == 'a' ? 1 : -1 ;
+							return (/^(link|a|area)$/i.test(aElement.localName) && aElement.getAttribute('href')) ? 1 : -1 ;
+						}, found);
+						break;
+
+					case 'visited':
+						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+						found = getElementsByCondition(function(aElement) {
+							var uri = aElement.getAttribute('href');
+							var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+							var isVisited = false;
+							if (isLink) {
+								try {
+									isVisited = this.GlobalHistory2.isVisited(uri);
+								}
+								catch(e) {
+								}
+							return isLink && isVisited ? 1 : -1 ;
 						}, found);
 						break;
 

@@ -79,21 +79,13 @@ var TextShadowService = {
 		}
 		if (box == d) box = d.documentElement;
 		return {
-			sizeBox  : box,
-			indent   : this.getComputedPixels(box, 'text-indent'),
-			width : d.getBoxObjectFor(aNode).width
-						- this.getComputedPixels(aNode, 'padding-left')
-						- this.getComputedPixels(aNode, 'padding-right'),
-			height : d.getBoxObjectFor(aNode).height
-						- this.getComputedPixels(aNode, 'padding-top')
-						- this.getComputedPixels(aNode, 'padding-bottom'),
-			boxWidth : d.getBoxObjectFor(box).width
+			sizeBox   : box,
+			indent    : this.getComputedPixels(box, 'text-indent'),
+			width     : d.getBoxObjectFor(aNode).width,
+			height    : d.getBoxObjectFor(aNode).height,
+			boxWidth  : d.getBoxObjectFor(box).width
 					- this.getComputedPixels(box, 'padding-left')
-					- this.getComputedPixels(box, 'padding-right')
-					- this.getComputedPixels(aNode, 'padding-left')
-					- this.getComputedPixels(aNode, 'padding-right')
-					- this.getComputedPixels(aNode, 'margin-left')
-					- this.getComputedPixels(aNode, 'margin-right'),
+					- this.getComputedPixels(box, 'padding-right'),
 			boxHeight : d.getBoxObjectFor(box).height
 				- this.getComputedPixels(box, 'padding-top')
 				- this.getComputedPixels(box, 'padding-bottom')

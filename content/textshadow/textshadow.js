@@ -34,6 +34,27 @@ var TextShadowService = {
  
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
  
+	makeURIFromSpec : function(aURI) 
+	{
+		const IOService = Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService);
+		try {
+			var newURI;
+			aURI = aURI || '';
+			if (aURI && String(aURI).indexOf('file:') == 0) {
+				var fileHandler = IOService.getProtocolHandler('file').QueryInterface(Components.interfaces.nsIFileProtocolHandler);
+				var tempLocalFile = fileHandler.getFileFromURLSpec(aURI);
+				newURI = IOService.newFileURI(tempLocalFile); // we can use this instance with the nsIFileURL interface.
+			}
+			else {
+				newURI = IOService.newURI(aURI, null, null);
+			}
+			return newURI;
+		}
+		catch(e){
+		}
+		return null;
+	},
+ 	
 	getNodesByXPath : function(aExpression, aContext, aLive) 
 	{
 		var d = aContext.ownerDocument || aContext;
@@ -413,21 +434,23 @@ var TextShadowService = {
 
 					case 'link':
 						found = getElementsByCondition(function(aElement) {
-							return (/^(link|a|area)$/i.test(aElement.localName) && aElement.getAttribute('href')) ? 1 : -1 ;
+							return (/^(link|a|area)$/i.test(aElement.localName) && (aElement.href || aElement.getAttribute('href'))) ? 1 : -1 ;
 						}, found);
 						break;
 
 					case 'visited':
 						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
 						found = getElementsByCondition(function(aElement) {
-							var uri = aElement.getAttribute('href');
+							var uri = aElement.href || aElement.getAttribute('href');
 							var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
 							var isVisited = false;
 							if (isLink) {
 								try {
-									isVisited = this.GlobalHistory2.isVisited(uri);
+									isVisited = history.isVisited(self.makeURIFromSpec(uri));
 								}
 								catch(e) {
+									dump(uri+' / '+self.makeURIFromSpec(uri));
+									dump(e+'\n');
 								}
 							}
 							return isLink && isVisited ? 1 : -1 ;
@@ -1120,7 +1143,7 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-  	 
+   
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
 		var w = aTab.linkedBrowser.contentWindow;

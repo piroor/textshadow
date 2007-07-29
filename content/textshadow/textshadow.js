@@ -650,7 +650,7 @@ var TextShadowService = {
 		}
 		else {
 			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.TAG_BOX_CONDITION+'])]', aElement);
-			var wrapper = d.createElement(this.TAG_BOX');
+			var wrapper = d.createElement(this.TAG_BOX);
 			wrapper.setAttribute('style', 'position: relative;');
 			var original = d.createElement(this.TAG_ORIGINAL);
 			original.setAttribute('style',
@@ -1135,11 +1135,11 @@ var TextShadowService = {
 	{
 		if (!('gBrowser' in window)) return;
 
-		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+" or local-name() = "'+this.TAG_BOX+'"';
-		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+" or local-name() = "'+this.TAG_ORIGINAL+'"';
-		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+" or local-name() = "'+this.TAG_BASE+'"';
-		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+" or local-name() = "'+this.TAG_SHADOW+'"';
-		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+" or local-name() = "'+this.TAG_SHADOW_PART+'"';
+		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+'" or local-name() = "'+this.TAG_BOX+'"';
+		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+'" or local-name() = "'+this.TAG_ORIGINAL+'"';
+		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+'" or local-name() = "'+this.TAG_BASE+'"';
+		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW+'"';
+		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART+'"';
 
 		window.removeEventListener('load', this, false);
 

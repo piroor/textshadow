@@ -5,9 +5,16 @@ p.test1:first-line {
 p.test2:first-letter {
 	text-shadow: 2px 2px red;
 }
-p:last-child {
+p:last-child,
+:target,
+:checked {
 	text-shadow: 2px 2px 2px blue;
 }
+
+:root {
+	text-shadow: 2px 2px 2px gray;
+}
+
 </style>
 
 <p style="padding-left: 2em; border: 1px solid red;">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em style="text-shadow: 2px 2px red">折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
@@ -17,6 +24,17 @@ p:last-child {
 
 <p class="test2">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
 
+<p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
+
+<ul>
+	<li><input type="checkbox" checked="true" />checked</li>
+	<li><input type="checkbox" checked>checked</li>
+	<li><input type="checkbox">not checked</li>
+	<li><input type="radio" checked="true" />checked</li>
+	<li><input type="radio" checked>checked</li>
+	<li><input type="radio">not checked</li>
+	<li><input type="text" size="10" value="hogehogehoge" /></li>
+</ul>
 
 <p class="test3">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
 

@@ -640,7 +640,7 @@ var TextShadowService = {
 
 		return 0;
 	},
- 	
+ 
 	getComputedPixels : function(aNode, aProperty) 
 	{
 		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
@@ -1027,7 +1027,7 @@ var TextShadowService = {
 				break;
 		}
 	},
-	
+	 
 	parseTextShadowValue : function(aValue) 
 	{
 		var array = [];
@@ -1105,7 +1105,8 @@ var TextShadowService = {
 					styles[i].media.mediaText &&
 					!/^\s*$/.test(styles[i].media.mediaText) &&
 					!/(all|screen|projection)/i.test(styles[i].media.mediaText)
-				)
+				)/* ||
+				!this.textShadowMayExists(styles[i]) */
 				)
 				continue;
 			foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, styles[i].cssRules));
@@ -1138,6 +1139,67 @@ var TextShadowService = {
 		return foundNodes;
 	},
 	 
+	textShadowMayExists : function(aStyle) 
+	{
+		const IOService = Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService);
+		const CacheService = Components.classes['@mozilla.org/network/cache-service;1'].getService(Components.interfaces.nsICacheService);
+
+		var styleContent;
+		var uri = aStyle.href;
+		if (
+			aStyle.ownerNode &&
+			aStyle.ownerNode.localName.toLowerCase() == 'style'
+			) {
+			styleContent = aStyle.ownerNode.innerHTML || aStyle.ownerNode.textContent;
+		}
+		else if (
+			aStyle.ownerNode &&
+			uri.split('#')[0] == aStyle.ownerNode.ownerDocument.defaultView.location.href.split('#')[0]
+			) {
+		}
+		else {
+			if (/^(file|resource|chrome):/.test(uri)) {
+/*
+				var channel = IOService.newChannelFromURI(this.makeURIFromSpec(uri));
+				var stream = channel.open();
+				var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
+						.createInstance(Components.interfaces.nsIScriptableInputStream);
+				scriptableStream.init(stream);
+				styleContent = scriptableStream.read(scriptableStream.available());
+				scriptableStream.close();
+				stream.close();
+*/
+			}
+			else if (/^https?:/.test(uri)) {
+				var session, entry;
+				try {
+					session = CacheService.createSession('HTTP-memory-only', Components.interfaces.nsICache.STORE_ANYWHERE, true);
+					entry = session.openCacheEntry(uri, Components.interfaces.nsICache.ACCESS_READ, false);
+				}
+				catch(e) {
+/*
+					try {
+						session = CacheService.createSession('HTTP', Components.interfaces.nsICache.STORE_ANYWHERE, true);
+						entry = session.openCacheEntry(uri, Components.interfaces.nsICache.ACCESS_READ, false);
+					}
+					catch(e) {
+					}
+*/
+				}
+				if (entry) {
+					var stream = entry.openInputStream(0);
+					var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
+							.createInstance(Components.interfaces.nsIScriptableInputStream);
+					scriptableStream.init(stream);
+					styleContent = scriptableStream.read(scriptableStream.available());
+					scriptableStream.close();
+					stream.close();
+				}
+			}
+		}
+		return (styleContent) ? (styleContent.indexOf('text-shadow') > -1) : true ;
+	},
+ 	
 	collectTargetsFromCSSRules : function(aFrame, aCSSRules) 
 	{
 		var foundNodes = [];
@@ -1197,11 +1259,11 @@ var TextShadowService = {
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
-//var startTime = (new Date()).getTime();
+var startTime = (new Date()).getTime();
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
-//var endTime = (new Date()).getTime();
-//dump('updateShadow '+(endTime - startTime)+'\n');
+var endTime = (new Date()).getTime();
+dump('updateShadow '+(endTime - startTime)+'\n');
 	},
  
 	updateAllShadows : function(aTabBrowser, aReason) 

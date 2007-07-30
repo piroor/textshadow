@@ -3,8 +3,8 @@ var TextShadowService = {
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
 	shadowEnabled     : false,
-	positionQuality    : 1,
-	renderingUnitSize  : 1,
+	positionQuality   : 1,
+	renderingUnitSize : 1,
 	silhouettePseudElementsAndClasses : true,
 
 	UPDATE_INIT     : 0,
@@ -1329,8 +1329,9 @@ var TextShadowService = {
 		aTabBrowser.__textshadow__prefListener = listener;
 		this.addPrefListener(listener);
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
-		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
+		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
+		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.silhouettePseudElementsAndClasses');
 
 		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
@@ -1451,12 +1452,16 @@ var TextShadowService = {
 				this.shadowEnabled = value;
 				break;
 
+			case 'extensions.textshadow.renderingUnitSize':
+				this.renderingUnitSize = Math.max(value, 1);
+				break;
+
 			case 'extensions.textshadow.position.quality':
 				this.positionQuality = value;
 				break;
 
-			case 'extensions.textshadow.renderingUnitSize':
-				this.renderingUnitSize = Math.max(value, 1);
+			case 'extensions.textshadow.silhouettePseudElementsAndClasses':
+				this.silhouettePseudElementsAndClasses = value;
 				break;
 
 			default:

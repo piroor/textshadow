@@ -126,204 +126,221 @@ var TextShadowService = {
 
 		var mode = 'element';
 
-		var search = function () {
-			var found = [];
+		var expression = [];
+		var expressionCount = 0;
 
-			var expression = [];
-			expression.push(
-				buf.combinators == '>' ? 'child::*' :
+		function evaluate(aExpression, aTargetElements)
+		{
+			dump(aExpression+'\n');
+			var found = [];
+			var foundCount = 0;
+			for (var i = 0, maxi = aTargetElements.length; i < maxi; i++ ) {
+				var nodes = self.getNodesByXPath(aExpression, aTargetElements[i]);
+				for (var j = 0, maxj = nodes.snapshotLength; j < maxj; j++ )
+				{
+					found[foundCount++] = nodes.snapshotItem(j);
+				}
+			}
+			return found;
+		}
+
+		function getElementsByCondition( callback, targetElements )
+		{
+			var elements = [];
+			var elmCount = 0;
+			for ( var i = 0, len = targetElements.length; i < len; i++ ) {
+				var element = targetElements[i];
+				if ( callback(element) > 0 ) {
+					elements[elmCount++] = element;
+				}
+			}
+			return elements;
+		}
+
+		function getFirstLetters(targetElements)
+		{
+			var elements = [];
+			var count = 0;
+			var first = aTargetDocument.createElement('_moz-first-letter');
+			for (var i = 0, len = targetElements.length; i < len; i++)
+			{
+				var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]', targetElements[i]);
+				if (firsts.snapshotLength) {
+					elements[count++] = firsts.snapshotItem(0);
+				}
+				else {
+					var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+					var node = text.snapshotItem(0);
+					node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
+					var newFirst = first.cloneNode(true)
+					node.parentNode.insertBefore(newFirst, node)
+						.appendChild(aTargetDocument.createTextNode(RegExp.$1));
+					elements[count++] = newFirst;
+				}
+			}
+			return elements;
+		}
+
+		function getFirstLines(targetElements)
+		{
+			var elements = [];
+			var count = 0;
+			var d = aTargetDocument;
+			var first = d.createElement('_moz-first-line');
+			var dummy = d.createElement('_moz-dummy-box');
+			var dummy1 = dummy.cloneNode(true);
+			var dummy2 = dummy.cloneNode(true);
+			var range = d.createRange();
+			for (var i = 0, len = targetElements.length; i < len; i++)
+			{
+				var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]', targetElements[i]);
+				if (firsts.snapshotLength) {
+					elements[count++] = firsts.snapshotItem(0);
+				}
+				else {
+					var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+					var lineEnd = false;
+					for (var j = 0, maxj = text.snapshotLength; j < maxj; j++)
+					{
+						var node = text.snapshotItem(j);
+						var parent = node.parentNode;
+						var firstPart = first.cloneNode(true);
+						firstPart.appendChild(d.createTextNode(''));
+						parent.insertBefore(dummy1, node);
+						var y = d.getBoxObjectFor(dummy1).screenY;
+						for (var k = 0, maxk = node.nodeValue.length; k < maxk; k++)
+						{
+							range.selectNodeContents(parent);
+							range.setStart(dummy1.nextSibling, k);
+							range.collapse(true);
+							range.insertNode(dummy2);
+							range.setStartBefore(parent.firstChild);
+							if (d.getBoxObjectFor(dummy2).screenY != y) {
+								firstPart.firstChild.nodeValue = firstPart.firstChild.nodeValue.substring(0, firstPart.firstChild.nodeValue.length-1);
+								parent.removeChild(dummy2);
+								parent.normalize();
+								lineEnd = true;
+								break;
+							}
+							firstPart.firstChild.nodeValue += parent.textContent.charAt(k);
+							parent.removeChild(dummy2);
+							parent.normalize();
+						}
+						parent.removeChild(dummy1);
+						if (firstPart.firstChild.nodeValue.length &&
+							!/^\s*$/.test(firstPart.firstChild.nodeValue)) {
+							range.selectNodeContents(parent);
+							range.insertNode(firstPart);
+							range.selectNodeContents(parent);
+							range.setStartAfter(firstPart);
+							range.setEnd(firstPart.nextSibling, firstPart.firstChild.nodeValue.length);
+							range.deleteContents();
+							elements[count++] = firstPart;
+						}
+						if (lineEnd) break;
+					}
+				}
+			}
+			range.detach();
+			return elements;
+		}
+
+		function search()
+		{
+			expression[expressionCount++] =
+				buf.combinators == '>' ? '*' :
 				buf.combinators == '+' ? 'following-sibling::*[1]' :
-				'descendant::*'
-			);
+				buf.combinators == '~' ? 'following-sibling::*' :
+				'descendant::*';
 
 			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
 			var nameCondition = '';
 			if (tagName != '*') {
 				nameCondition = '[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
-				expression.push(nameCondition);
+				expression[expressionCount++] = nameCondition;
 			}
 
-			if (buf.id.length) expression.push('[@id = "'+buf.id+'"]');
+			if (buf.id.length) expression[expressionCount++] = '[@id = "'+buf.id+'"]';
 			if (buf.class.length) {
 				var classes = buf.class.split('.').map(function(aItem) {
 						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
 					});
-				expression.push('['+classes.join(' and ')+']');
+				expression[expressionCount++] = '['+classes.join(' and ')+']';
 			}
 			if (buf.attributes.length) {
 				var attributes = buf.attributes;
 				for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ )
 				{
 					var attribute = attributes[i];
-					/^(\w+)\s*(?:([~|]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
+					/^(\w+)\s*(?:([~\|\^\$\*]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
 					var attrName  = RegExp.$1;
 					var operator  = RegExp.$2;
 					var attrValue = RegExp.$3;
-					expression.push('['+(
+					expression[expressionCount++] = '['+(
 						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
 						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
 						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
+						operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
+						operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
+						operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
 							'@'+attrName
-					)+']');
+					)+']';
 				}
 			}
 
-			var pseudDone = true;
+			var pseudEvaluated = true;
 			if (buf.pseud.length) {
 				switch (buf.pseud)
 				{
 					case 'first-child':
-						expression.push('[not(preceding-sibling::*)]');
+						expression[expressionCount++] = '[not(preceding-sibling::*)]';
 						break;
 					case 'last-child':
-						expression.push('[not(following-sibling::*)]');
+						expression[expressionCount++] = '[not(following-sibling::*)]';
 						break;
 					case 'first-of-type':
-						expression.push('[not(preceding-sibling::*'+nameCondition+')]');
+						expression[expressionCount++] = '[1]';
 					case 'last-of-type':
-						expression.push('[not(following-sibling::*'+nameCondition+')]');
+						expression[expressionCount++] = '[last()]';
 						break;
 					case 'only-child':
-						expression.push('[not(preceding-sibling::*)and not(following-sibling::*)]');
+						expression[expressionCount++] = '[not(preceding-sibling::*) and not(following-sibling::*)]';
 						break;
 					case 'only-of-type':
-						expression.push('[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]');
+						expression[expressionCount++] = '[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]';
 						break;
 					case 'empty':
-						expression.push('[not(child::node())]');
+						expression[expressionCount++] = '[not(node())]';
 						break;
 					case 'link':
-						expression.push('[local-name() = "link" or local-name() = "LINK" or local-name() = "a" or local-name() = "A" or local-name() = "area" or local-name() = "AREA"]');
+						expression[expressionCount++] = '[contains(" link LINK a A area AREA ", concat(" ", local-name(), " ")]';
 						break;
 					case 'enabled':
-						expression.push('[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]');
+						expression[expressionCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
 						break;
 					case 'disabled':
-						expression.push('[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]');
+						expression[expressionCount++] = '[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]';
 						break;
 					case 'checked':
-						expression.push('[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]');
+						expression[expressionCount++] = '[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]';
 						break;
 					case 'indeterminate':
-						expression.push('[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]');
+						expression[expressionCount++] = '[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]';
 						break;
 					case 'root':
-						expression.push('[not(ancestor::*)]');
+						expression[expressionCount++] = '[not(ancestor::*)]';
 						break;
 					default:
-						pseudDone = false;
+						pseudEvaluated = false;
 						break;
 				}
-			}
-
-//			dump(expression.join('')+'\n');
-
-			expression = expression.join('');
-			for ( var i = 0, len = foundElements.length; i < len; i++ ) {
-				var nodes = self.getNodesByXPath(expression, foundElements[i]);
-				for ( var j = 0, node_len = nodes.snapshotLength; j < node_len; j++ ) {
-					found.push(nodes.snapshotItem(j));
-				}
-			}
-
-			var getElementsByCondition = function ( callback, targetElements ) {
-				var elements = [];
-				var elmCount = 0;
-				for ( var i = 0, len = targetElements.length; i < len; i++ ) {
-					var element = targetElements[i];
-					if ( callback(element) > 0 ) {
-						elements[elmCount++] = element;
-					}
-				}
-				return elements;
 			}
 
 			// Pseud-class
-			if (!pseudDone && buf.pseud.length) {
-				var getFirstLetters = function(targetElements) {
-					var elements = [];
-					var first = aTargetDocument.createElement('_moz-first-letter');
-					for (var i = 0, len = targetElements.length; i < len; i++)
-					{
-						var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]', targetElements[i]);
-						if (firsts.snapshotLength) {
-							elements.push(firsts.snapshotItem(0));
-						}
-						else {
-							var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
-							var node = text.snapshotItem(0);
-							node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
-							var newFirst = first.cloneNode(true)
-							node.parentNode.insertBefore(newFirst, node)
-								.appendChild(aTargetDocument.createTextNode(RegExp.$1));
-							elements.push(newFirst);
-						}
-					}
-					return elements;
-				}
-
-				var getFirstLines = function(targetElements) {
-					var elements = [];
-					var d = aTargetDocument;
-					var first = d.createElement('_moz-first-line');
-					var dummy = d.createElement('_moz-dummy-box');
-					var dummy1 = dummy.cloneNode(true);
-					var dummy2 = dummy.cloneNode(true);
-					var range = d.createRange();
-					for (var i = 0, len = targetElements.length; i < len; i++)
-					{
-						var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]', targetElements[i]);
-						if (firsts.snapshotLength) {
-							elements.push(firsts.snapshotItem(0));
-						}
-						else {
-							var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
-							var lineEnd = false;
-							for (var j = 0, maxj = text.snapshotLength; j < maxj; j++)
-							{
-								var node = text.snapshotItem(j);
-								var parent = node.parentNode;
-								var firstPart = first.cloneNode(true);
-								firstPart.appendChild(d.createTextNode(''));
-								parent.insertBefore(dummy1, node);
-								var y = d.getBoxObjectFor(dummy1).screenY;
-								for (var k = 0, maxk = node.nodeValue.length; k < maxk; k++)
-								{
-									range.selectNodeContents(parent);
-									range.setStart(dummy1.nextSibling, k);
-									range.collapse(true);
-									range.insertNode(dummy2);
-									range.setStartBefore(parent.firstChild);
-									if (d.getBoxObjectFor(dummy2).screenY != y) {
-										firstPart.firstChild.nodeValue = firstPart.firstChild.nodeValue.substring(0, firstPart.firstChild.nodeValue.length-1);
-										parent.removeChild(dummy2);
-										parent.normalize();
-										lineEnd = true;
-										break;
-									}
-									firstPart.firstChild.nodeValue += parent.textContent.charAt(k);
-									parent.removeChild(dummy2);
-									parent.normalize();
-								}
-								parent.removeChild(dummy1);
-								if (firstPart.firstChild.nodeValue.length &&
-									!/^\s*$/.test(firstPart.firstChild.nodeValue)) {
-									range.selectNodeContents(parent);
-									range.insertNode(firstPart);
-									range.selectNodeContents(parent);
-									range.setStartAfter(firstPart);
-									range.setEnd(firstPart.nextSibling, firstPart.firstChild.nodeValue.length);
-									range.deleteContents();
-									elements.push(firstPart);
-								}
-								if (lineEnd) break;
-							}
-						}
-					}
-					range.detach();
-					return elements;
-				}
-
+			if (!pseudEvaluated && buf.pseud.length) {
+				var found = evaluate(expression.join(''), foundElements);
+				expression = [];
+				expressionCount = 0;
 				switch (buf.pseud)
 				{
 					case 'first-letter':
@@ -361,12 +378,14 @@ var TextShadowService = {
 						break;
 
 					default:
-						if (pseudDone) found = [];
+						found = [];
 						break;
 				}
+				foundElements = found;
 			}
-			// Pseud-elements
-			foundElements = found;
+			else {
+				expression[expressionCount++] = '/';
+			}
 			buf.clear();
 		};
 
@@ -421,9 +440,24 @@ var TextShadowService = {
 					buf.combinators = '+';
 					mode = 'element';
 					break;
+				case '~':
+					if (mode == 'attribute') {
+						buf[mode] += token;
+					}
+					else {
+						search();
+						buf.combinators = '~';
+						mode = 'element';
+					}
+					break;
 				// elements
 				case '*':
-					buf.element = '*';
+					if (mode == 'attribute') {
+						buf[mode] += token;
+					}
+					else {
+						buf.element = '*';
+					}
 					break;
 				// default
 				default :
@@ -436,8 +470,13 @@ var TextShadowService = {
 			}
 		}
 		search();
+		if (expressionCount) {
+			if (expression[expressionCount-1] == '/')
+				expression.splice(expressionCount-1, 1);
+			foundElements = evaluate(expression.join(''), foundElements);
+		}
+		dump(foundElements.length+'\n');
 
-//dump(foundElements+'\n');
 		return foundElements;
 	},
  

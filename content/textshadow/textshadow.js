@@ -360,6 +360,10 @@ var TextShadowService = {
 							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
 						}
 
+						else if (/contains(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
+						}
+
 						else {
 							pseudEvaluated = false;
 						}

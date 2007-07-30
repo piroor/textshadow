@@ -583,12 +583,13 @@ var TextShadowService = {
 				for (var i = 0, maxi = steps.length; i < maxi; i++)
 				{
 					if (isFirst) {
-						steps[i] = steps[i].replace(/^[^:]*/, 'self');
+						steps[i] = steps[i]
+									.replace(/^[^:\*]*(::)?/, 'self::');
 						isFirst = false;
 					}
 					else {
 						steps[i] = steps[i]
-									.replace(/^([^:]*|child)/, 'parent')
+									.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
 									.replace(/^descendant/, 'ancestor');
 					}
 				}

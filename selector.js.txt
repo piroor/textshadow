@@ -102,6 +102,13 @@ document.getElementsBySelector = function(aSelector) {
 };
 
 document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
+
+	// 元のドキュメントをいじりたくない場合は、falseにすること。
+	// If you don't want to modify original document, set this to false.
+	var silhouettePseudElementsAndClasses = true;
+
+//------------------------------------------------------------------------
+
 	var self = this;
 	var foundElements = [this];
 
@@ -169,10 +176,11 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 	{
 		var elements = [];
 		var count = 0;
-		var first = aTargetDocument.createElement('_moz-first-letter');
+		var first = aTargetDocument.createElement('span');
+		first.setAttribute('class', 'pseud-first-letter');
 		for (var i = 0, len = targetElements.length; i < len; i++)
 		{
-			var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]', targetElements[i]);
+			var firsts = self.getNodesByXPath('descendant::*[@class = "pseud-first-letter"]', targetElements[i]);
 			if (firsts.snapshotLength) {
 				elements[count++] = firsts.snapshotItem(0);
 			}
@@ -194,14 +202,16 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 		var elements = [];
 		var count = 0;
 		var d = aTargetDocument;
-		var first = d.createElement('_moz-first-line');
-		var dummy = d.createElement('_moz-dummy-box');
+		var first = d.createElement('span');
+		first.setAttribute('class', 'pseud-first-line');
+		var dummy = d.createElement('span');
+		dummy.setAttribute('class', 'pseud-dummy-box');
 		var dummy1 = dummy.cloneNode(true);
 		var dummy2 = dummy.cloneNode(true);
 		var range = d.createRange();
 		for (var i = 0, len = targetElements.length; i < len; i++)
 		{
-			var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]', targetElements[i]);
+			var firsts = self.getNodesByXPath('descendant::*[@class = "pseud-first-line"]', targetElements[i]);
 			if (firsts.snapshotLength) {
 				elements[count++] = firsts.snapshotItem(0);
 			}
@@ -215,7 +225,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 					var firstPart = first.cloneNode(true);
 					firstPart.appendChild(d.createTextNode(''));
 					parent.insertBefore(dummy1, node);
-					var y = d.getBoxObjectFor(dummy1).screenY;
+					var y = dummy1.offsetTop;
 					for (var k = 0, maxk = node.nodeValue.length; k < maxk; k++)
 					{
 						range.selectNodeContents(parent);
@@ -223,7 +233,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 						range.collapse(true);
 						range.insertNode(dummy2);
 						range.setStartBefore(parent.firstChild);
-						if (d.getBoxObjectFor(dummy2).screenY != y) {
+						if (dummy2.offsetTop != y) {
 							firstPart.firstChild.nodeValue = firstPart.firstChild.nodeValue.substring(0, firstPart.firstChild.nodeValue.length-1);
 							parent.removeChild(dummy2);
 							parent.normalize();
@@ -390,48 +400,62 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 			var found = evaluate(steps.join('/')+'/'+step.join(''), foundElements);
 			switch (buf.pseud)
 			{
-				case 'first-letter':
-					found = getFirstLetters(found);
-					step[stepCount++] = '/*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
-					break;
-
-				case 'first-line':
-					found = getFirstLines(found);
-					step[stepCount++] = '/*[local-name() = "_moz-first-LINE" or local-name() = "_MOZ-FIRST-LINE"]';
-					break;
-
 /*
 				case 'visited':
-					var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-					found = getElementsByCondition(function(aElement) {
-						var uri = aElement.href || aElement.getAttribute('href');
-						var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
-						var isVisited = false;
-						if (isLink) {
-							try {
-								isVisited = history.isVisited(self.makeURIFromSpec(uri));
+					if (silhouettePseudElementsAndClasses) {
+						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+						found = getElementsByCondition(function(aElement) {
+							var uri = aElement.href || aElement.getAttribute('href');
+							var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+							var isVisited = false;
+							if (isLink) {
+								try {
+									isVisited = history.isVisited(self.makeURIFromSpec(uri));
+								}
+								catch(e) {
+									dump(uri+' / '+self.makeURIFromSpec(uri));
+									dump(e+'\n');
+								}
+								if (isVisited) {
+									var className = aElement.getAttribute('class');
+									aElement.setAttribute('class', (className ? className+' ' : '' )+'pseud-class-visited');
+								}
 							}
-							catch(e) {
-								dump(uri+' / '+self.makeURIFromSpec(uri));
-								dump(e+'\n');
-							}
-							if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
-						}
-						return isLink && isVisited ? 1 : -1 ;
-					}, found);
-					step[stepCount++] = '[@_moz-pseud-class-visited = "true"]';
-					break;
+							return isLink && isVisited ? 1 : -1 ;
+						}, found);
+						step[stepCount++] = '[contains(concat(" ",@class," "), " pseud-class-visited ")]';
+						break;
+					}
 */
 
 				case 'target':
-					found = getElementsByCondition(function(aElement) {
-						(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-						var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-						if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
-						return isTarget ? 1 : -1 ;
-					}, found);
-					step[stepCount++] = '[@_moz-pseud-class-target = "true"]';
-					break;
+					if (silhouettePseudElementsAndClasses) {
+						found = getElementsByCondition(function(aElement) {
+							(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+							var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+							if (isTarget) {
+								var className = aElement.getAttribute('class');
+								aElement.setAttribute('class', (className ? className+' ' : '' )+'pseud-class-target');
+							}
+							return isTarget ? 1 : -1 ;
+						}, found);
+						step[stepCount++] = '[contains(concat(" ",@class," "), " pseud-class-target ")]';
+						break;
+					}
+
+				case 'first-letter':
+					if (silhouettePseudElementsAndClasses) {
+						found = getFirstLetters(found);
+						step[stepCount++] = '/*[@class = "pseud-first-letter"]';
+						break;
+					}
+
+				case 'first-line':
+					if (silhouettePseudElementsAndClasses) {
+						found = getFirstLines(found);
+						step[stepCount++] = '/*[@class = "pseud-first-line"]';
+						break;
+					}
 
 				default:
 					steps      = [];

@@ -3,8 +3,9 @@ var TextShadowService = {
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
 	shadowEnabled     : false,
-	positionQuality   : 1,
-	renderingUnitSize : 1,
+	positionQuality    : 1,
+	renderingUnitSize  : 1,
+	silhouettePseudElementsAndClasses : true,
 
 	UPDATE_INIT     : 0,
 	UPDATE_PAGELOAD : 1,
@@ -402,46 +403,54 @@ var TextShadowService = {
 				var found = evaluate(steps.join('/')+'/'+step.join(''), foundElements);
 				switch (buf.pseud)
 				{
-					case 'first-letter':
-						found = getFirstLetters(found);
-						step[stepCount++] = '/*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
-						break;
-
-					case 'first-line':
-						found = getFirstLines(found);
-						step[stepCount++] = '/*[local-name() = "_moz-first-LINE" or local-name() = "_MOZ-FIRST-LINE"]';
-						break;
-
 					case 'visited':
-						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-						found = getElementsByCondition(function(aElement) {
-							var uri = aElement.href || aElement.getAttribute('href');
-							var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
-							var isVisited = false;
-							if (isLink) {
-								try {
-									isVisited = history.isVisited(self.makeURIFromSpec(uri));
+						if (self.silhouettePseudElementsAndClasses) {
+							var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+							found = getElementsByCondition(function(aElement) {
+								var uri = aElement.href || aElement.getAttribute('href');
+								var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+								var isVisited = false;
+								if (isLink) {
+									try {
+										isVisited = history.isVisited(self.makeURIFromSpec(uri));
+									}
+									catch(e) {
+										dump(uri+' / '+self.makeURIFromSpec(uri));
+										dump(e+'\n');
+									}
+									if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
 								}
-								catch(e) {
-									dump(uri+' / '+self.makeURIFromSpec(uri));
-									dump(e+'\n');
-								}
-								if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
-							}
-							return isLink && isVisited ? 1 : -1 ;
-						}, found);
-						step[stepCount++] = '[@_moz-pseud-class-visited = "true"]';
-						break;
+								return isLink && isVisited ? 1 : -1 ;
+							}, found);
+							step[stepCount++] = '[@_moz-pseud-class-visited = "true"]';
+							break;
+						}
 
 					case 'target':
-						found = getElementsByCondition(function(aElement) {
-							(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-							var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-							if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
-							return isTarget ? 1 : -1 ;
-						}, found);
-						step[stepCount++] = '[@_moz-pseud-class-target = "true"]';
-						break;
+						if (self.silhouettePseudElementsAndClasses) {
+							found = getElementsByCondition(function(aElement) {
+								(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+								var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+								if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+								return isTarget ? 1 : -1 ;
+							}, found);
+							step[stepCount++] = '[@_moz-pseud-class-target = "true"]';
+							break;
+						}
+
+					case 'first-letter':
+						if (self.silhouettePseudElementsAndClasses) {
+							found = getFirstLetters(found);
+							step[stepCount++] = '/*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
+							break;
+						}
+
+					case 'first-line':
+						if (self.silhouettePseudElementsAndClasses) {
+							found = getFirstLines(found);
+							step[stepCount++] = '/*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]';
+							break;
+						}
 
 					default:
 						steps      = [];

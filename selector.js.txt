@@ -90,6 +90,8 @@ document.getElementsBySelector = function(aSelector) {
 	var nodes = [];
 	var count = 0;
 
+	if (!aSelector) return nodes;
+
 	var expression = this.convertSelectorToXPath(aSelector);
 	if (!expression) return nodes;
 
@@ -602,13 +604,13 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 document.getNodesByXPath = function(aExpression, aContext, aLive) 
 {
-	var d = aContext || this;
+	var aContext = aContext || this;
 	var type = aLive ? XPathResult.ORDERED_NODE_ITERATOR_TYPE : XPathResult.ORDERED_NODE_SNAPSHOT_TYPE ;
+	var nodes;
 	try {
-		nodes = d.evaluate(aExpression, aContext, null, type, null);
+		nodes = this.evaluate(aExpression, aContext, null, type, null);
 	}
 	catch(e) {
-		nodes = document.evaluate(aExpression, aContext, null, type, null);
 	}
 	return nodes;
 };

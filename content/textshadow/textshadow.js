@@ -101,6 +101,8 @@ var TextShadowService = {
 		var nodes = [];
 		var count = 0;
 
+		if (!aSelector) return nodes;
+
 		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument);
 		if (!expression) return nodes;
 

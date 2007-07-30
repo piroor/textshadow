@@ -25,6 +25,8 @@ ul.test li+li {
 
 </style>
 
+<p><button id="test-button">SELECTOR TEST</button></p>
+
 <ul>
 	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">段落まるごとのtext-shadow</a></li>
 	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
@@ -34,7 +36,7 @@ ul.test li+li {
 </ul>
 
 
-<p style="padding-left: 2em; border: 1px solid red;">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em style="text-shadow: 2px 2px red">折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+<p style="padding-left: 2em;">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em style="text-shadow: 2px 2px red">折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
 
 
 <p class="test1">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
@@ -64,7 +66,11 @@ ul.test li+li {
 <script type="text/javascript" src="selector.js.txt"></script>
 <script type="text/javascript"><!--
 
-document.write('<p>OK<'+'/p>');
+document.getElementById('test-button').addEventListener('click', function() {
+	var nodes = document.getElementsBySelector(prompt('input CSS selector'));
+	for (var i in nodes)
+		nodes[i].setAttribute('style', 'border: 1px solid red;');
+}, false);
 
 //--></script>
 

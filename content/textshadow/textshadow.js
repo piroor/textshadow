@@ -112,6 +112,7 @@ var TextShadowService = {
 			'id'          : '',
 			'class'       : '',
 			'pseud'       : '',
+			'pseudArg'    : '',
 			'combinators' : ' ',
 			'clear'       : function () {
 				this.element     = '';
@@ -120,6 +121,7 @@ var TextShadowService = {
 				this.id          = '';
 				this.class       = '';
 				this.pseud       = '';
+				this.pseudArg    = '';
 				this.combinators = '';
 			}
 		};
@@ -131,7 +133,6 @@ var TextShadowService = {
 
 		function evaluate(aExpression, aTargetElements)
 		{
-			dump(aExpression+'\n');
 			var found = [];
 			var foundCount = 0;
 			for (var i = 0, maxi = aTargetElements.length; i < maxi; i++ ) {
@@ -331,7 +332,37 @@ var TextShadowService = {
 						expression[expressionCount++] = '[not(ancestor::*)]';
 						break;
 					default:
-						pseudEvaluated = false;
+						var condition = /'^nth-(last-)?of-type'/.test(buf.pseud) ? '['+nameCondition+']' : '' ;
+
+						if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') = '+RegExp.$2+']';
+						}
+						else if (/nth-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod '+RegExp.$2+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+' = 0]';
+						}
+						else if (/nth-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 0]';
+						}
+						else if (/nth-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 1]';
+						}
+
+						if (/nth-last-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(following-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
+						}
+						else if (/nth-last-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod '+(parseInt(RegExp.$2)-1)+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+' = 0]';
+						}
+						else if (/nth-last-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 0]';
+						}
+						else if (/nth-last-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
+							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
+						}
+
+						else {
+							pseudEvaluated = false;
+						}
 						break;
 				}
 			}
@@ -408,12 +439,12 @@ var TextShadowService = {
 					mode = 'attribute';
 					break;
 				case ']':
-					buf.attributes.push( buf.attribute );
+					buf.attributes.push(buf.attribute);
 					buf.attribute = '';
 					mode = 'element';
 					break;
 				case '.':
-					if ( mode == 'class' ) {
+					if (mode == 'class') {
 						buf[mode] += token;
 					}
 					mode = 'class';
@@ -421,9 +452,27 @@ var TextShadowService = {
 				case '#':
 					mode = 'id';
 					break;
+
 				case ':':
 					mode = 'pseud';
 					break;
+				case '(':
+					if (mode == 'pseud') {
+						mode = 'pseudArg';
+					}
+					else {
+						buf[mode] += token;
+					}
+					break;
+				case ')':
+					if (mode == 'pseudArg') {
+						mode = 'element';
+					}
+					else {
+						buf[mode] += token;
+					}
+					break;
+
 				// combinators
 				case ' ':
 					search();
@@ -436,12 +485,17 @@ var TextShadowService = {
 					mode = 'element';
 					break;
 				case '+':
-					search();
-					buf.combinators = '+';
-					mode = 'element';
+					if (mode == 'pseudArg') {
+						buf[mode] += token;
+					}
+					else {
+						search();
+						buf.combinators = '+';
+						mode = 'element';
+					}
 					break;
 				case '~':
-					if (mode == 'attribute') {
+					if (mode == 'attribute' || mode == 'pseudArg') {
 						buf[mode] += token;
 					}
 					else {
@@ -450,15 +504,17 @@ var TextShadowService = {
 						mode = 'element';
 					}
 					break;
+
 				// elements
 				case '*':
-					if (mode == 'attribute') {
+					if (mode == 'attribute' || mode == 'pseudArg') {
 						buf[mode] += token;
 					}
 					else {
 						buf.element = '*';
 					}
 					break;
+
 				// default
 				default :
 					buf[mode] += token;

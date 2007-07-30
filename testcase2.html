@@ -1,0 +1,122 @@
+<style type="text/css">
+p.test1:first-line {
+	text-shadow: 2px 2px red;
+}
+p.test2:first-letter {
+	text-shadow: 2px 2px red;
+}
+p:last-child,
+:target,
+:checked,
+li[class~="foobar"],
+li[lang|="en"],
+li[class1^="fire"],
+li[class2$="bird"],
+li[class3*="f"] {
+	text-shadow: 2px 2px 2px blue;
+}
+
+.odd li:not(ul) {
+	text-shadow: 2px 2px 2px blue;
+}
+
+.odd li:contains("hoge") { text-shadow: 2px 2px 2px blue; }
+
+.odd li:nth-child(odd) { text-shadow: 2px 2px 2px blue; }
+.even li:nth-child(even) { text-shadow: 2px 2px 2px blue; }
+.first li:nth-child(2) { text-shadow: 2px 2px 2px blue; }
+.last li:nth-last-child(2) { text-shadow: 2px 2px 2px blue; }
+
+:visited {
+	text-shadow: 0px 0px 2px purple;
+}
+
+:root {
+	text-shadow: 2px 2px 2px gray;
+}
+
+</style>
+
+<ul>
+	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">段落まるごとのtext-shadow</a></li>
+	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
+	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line疑似要素</a></li>
+	<li><a href="http://taken.s101.xrea.com/blog/index.php">大量の影</a></li>
+	<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=10713">Implement CSS2/3 text-shadow property</a></li>
+</ul>
+
+<ul>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li class="list item foobar">リスト項目[class~="foobar"]</li>
+	<li lang="en-US">リスト項目[lang|="en"]</li>
+	<li class1="firefox">リスト項目 firefox [class1^="fire"]</li>
+	<li class1="firebird">リスト項目 firebird [class1^="fire"]</li>
+	<li class1="thunderbird">リスト項目 thunderbird [class1^="fire"]</li>
+	<li class2="firefox">リスト項目 firefox [class2$="bird"]</li>
+	<li class2="firebird">リスト項目 firebird [class2$="bird"]</li>
+	<li class2="thunderbird">リスト項目 thunderbird [class2$="bird"]</li>
+	<li class3="firefox">リスト項目 firefox  [class3*="f"]</li>
+	<li class3="thunderbird">リスト項目 thunderbird  [class3*="f"]</li>
+	<li class3="wildfox">リスト項目 wildfox  [class3*="f"]</li>
+	<li>リスト項目</li>
+</ul>
+
+<p>odd</p>
+<ul class="odd">
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+</ul>
+
+<p>even</p>
+<ul class="even">
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+</ul>
+
+<p>2</p>
+<ul class="first">
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+</ul>
+
+<p>2 (last)</p>
+<ul class="last">
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+	<li>リスト項目</li>
+</ul>
+
+
+<p style="padding-left: 2em; border: 1px solid red;">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em style="text-shadow: 2px 2px red">折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+
+<p class="test1">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+<p class="test2">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+<p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
+
+<ul>
+	<li><input type="checkbox" checked="true" />checked</li>
+	<li><input type="checkbox" checked>checked</li>
+	<li><input type="checkbox">not checked</li>
+	<li><input type="radio" checked="true" />checked</li>
+	<li><input type="radio" checked>checked</li>
+	<li><input type="radio">not checked</li>
+	<li><input type="text" size="10" value="hogehogehoge" /></li>
+</ul>
+
+<p class="test3">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+

@@ -693,6 +693,8 @@ var TextShadowService = {
 	clearShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
+
+/*
 		var sel = d.defaultView.getSelection();
 		var startContainer;
 		var startOffset = -1;
@@ -716,6 +718,7 @@ var TextShadowService = {
 			}
 			compareRange.detach();
 		}
+*/
 
 		var originals = this.getNodesByXPath('descendant::*['+this.TAG_ORIGINAL_CONDITION+']', aElement);
 		var parent;
@@ -728,6 +731,7 @@ var TextShadowService = {
 			parent.removeChild(node.parentNode);
 		}
 
+/*
 		if (!rebuildSelection || !parent) return;
 
 		var text = parent.firstChild;
@@ -735,6 +739,7 @@ var TextShadowService = {
 		newSel.setStart(startContainer || text, startOffset);
 		newSel.setEnd(endContainer || text, endOffset);
 		sel.addRange(newSel);
+*/
 	},
   
 	startDrawShadow : function(aFrame) 
@@ -1108,8 +1113,8 @@ var TextShadowService = {
 		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW.toUpperCase()+'"';
 		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART.toUpperCase()+'"';
 
-		window.__textshadow__goDoCommand = window.goDoCommand;
-		window.goDoCommand = this.goDoCommand;
+//		window.__textshadow__goDoCommand = window.goDoCommand;
+//		window.goDoCommand = this.goDoCommand;
 
 		window.removeEventListener('load', this, false);
 

@@ -93,7 +93,7 @@ document.getElementsBySelector = function(aSelector) {
 	var expression = this.convertSelectorToXPath(aSelector);
 	if (!expression) return nodes;
 
-	result = this.getNodesByXPath(expression, aTargetDocument);
+	result = this.getNodesByXPath(expression);
 	for (var i = 0, maxi = result.snapshotLength; i < maxi; i++)
 	{
 		nodes[count++] = result.snapshotItem(i);
@@ -176,7 +176,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 	{
 		var elements = [];
 		var count = 0;
-		var first = aTargetDocument.createElement('span');
+		var first = self.createElement('span');
 		first.setAttribute('class', 'pseud-first-letter');
 		for (var i = 0, len = targetElements.length; i < len; i++)
 		{
@@ -190,7 +190,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
 				var newFirst = first.cloneNode(true)
 				node.parentNode.insertBefore(newFirst, node)
-					.appendChild(aTargetDocument.createTextNode(RegExp.$1));
+					.appendChild(self.createTextNode(RegExp.$1));
 				elements[count++] = newFirst;
 			}
 		}
@@ -201,7 +201,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 	{
 		var elements = [];
 		var count = 0;
-		var d = aTargetDocument;
+		var d = self;
 		var first = d.createElement('span');
 		first.setAttribute('class', 'pseud-first-line');
 		var dummy = d.createElement('span');
@@ -355,7 +355,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 					var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
 					if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
-						step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, true)+')]';
+						step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, true)+')]';
 					}
 
 					else if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
@@ -431,7 +431,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				case 'target':
 					if (silhouettePseudElementsAndClasses) {
 						found = getElementsByCondition(function(aElement) {
-							(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+							(/#(.+)$/).test(self.defaultView.location.href);
 							var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
 							if (isTarget) {
 								var className = aElement.getAttribute('class');

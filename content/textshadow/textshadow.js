@@ -61,6 +61,7 @@ var TextShadowService = {
 	{
 		var d = aContext.ownerDocument || aContext;
 		var type = aLive ? XPathResult.ORDERED_NODE_ITERATOR_TYPE : XPathResult.ORDERED_NODE_SNAPSHOT_TYPE ;
+		var nodes;
 		try {
 			nodes = d.evaluate(aExpression, aContext, null, type, null);
 		}

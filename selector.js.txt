@@ -57,15 +57,16 @@ CSS3:
 */
 
 /*
-NAME: selector.js - Get elements by CSS selector
+NAME: selector.js[mod] - Get elements by CSS selector
 Author :  |
-    SHIMODA "Piro" Hiroshi, <piro@p.club.ne.jp>
+    SHIMODA "Piro" Hiroshi <piro@p.club.ne.jp>
     http://piro.sakura.ne.jp/
 Original Auther:  |
     Nyarla, <thotep@nyarla.net>
     http://nyarla.net/blog/
 License: |
-    This libary Copyright (c) 2006, Nyarla, (c) 2007, SHIMODA "Piro" Hiroshi,
+    This libary Copyright (c) 2006, Nyarla,
+    (c) 2007, SHIMODA "Piro" Hiroshi
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),

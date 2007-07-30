@@ -98,7 +98,6 @@ var TextShadowService = {
 		var self = this;
 
 		var tokens = aSelector
-					.replace(/(^|\b)\w+\||\*\|/g, '')
 					.replace(/\s+/g, ' ')
 					.replace(/\s*([>+])\s*/g, '$1');
 //dump(tokens+'\n');
@@ -127,107 +126,103 @@ var TextShadowService = {
 
 		var mode = 'element';
 
-		var getTargetElements = function (tagName, targetElements) {
-			var elements = [];
-			var elmCount = 0;
-			for ( var i = 0, len = targetElements.length; i < len; i++ ) {
-				var target = targetElements[i];
-				switch ( buf.combinators ) {
-					case ' ':
-						var found = target.getElementsByTagName(tagName);
-						for ( var j = 0, found_len = found.length; j < found_len; j++ ) {
-							elements[elmCount++] = found[j];
-						}
-						break;
-					case '>':
-						var childNodes = target.childNodes;
-						for ( var j = 0, node_len = childNodes.length; j < node_len; j++ ) {
-							var childNode = childNodes[j];
-							var nodeType = childNode.nodeType;
-							if ( nodeType == 1 ) {
-								if ( tagName != '*'
-								  && childNode.tagName.toLowerCase() != tagName.toLowerCase() ) {
-									continue;
-								}
-								elements[elmCount++] = childNode;
-							}
-						}
-						break;
-					case '+':
-						var nextNode = target.nextSibling;
-						while ( 1 ) {
-							if ( nextNode != null ) {
-								if ( nextNode.nodeType == 1 ) {
-									if ( tagName != '*'
-									  && tagName.toLowerCase() != nextNode.tagName.toLowerCase() ) {
-										break;
-									}
-									elements[elmCount++] = nextNode;
-									break;
-								}
-								else {
-									nextNode = nextNode.nextSibling;
-									continue;
-								}
-							}
-							else {
-								break;
-							}
-						}
-						break;
-				}
-			}
-		return elements;
-		};
-
 		var search = function () {
 			var found = [];
-			var tagName = buf.element.toLowerCase();
-			if ( tagName.length == 0 ) {
-				tagName = '*';
-			}
-			// Element
-			found = getTargetElements( tagName, foundElements );
-			// ID
-			if ( buf.id.length != 0 ) {
-				var targets = found;
-				var id = buf.id;
 
-				for ( var i = 0, len = targets.length; i < len; i++ ) {
-					var target = targets[i];
-					var targetId = target.getAttribute('id');
-					if ( targetId && targetId == id ) {
-						found = [target];
+			var expression = [];
+			expression.push(
+				buf.combinators == '>' ? 'child::*' :
+				buf.combinators == '+' ? 'following-sibling::*[1]' :
+				'descendant::*'
+			);
+
+			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
+			var nameCondition = '';
+			if (tagName != '*') {
+				nameCondition = '[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
+				expression.push(nameCondition);
+			}
+
+			if (buf.id.length) expression.push('[@id = "'+buf.id+'"]');
+			if (buf.class.length) {
+				var classes = buf.class.split('.').map(function(aItem) {
+						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
+					});
+				expression.push('['+classes.join(' and ')+']');
+			}
+			if (buf.attributes.length) {
+				var attributes = buf.attributes;
+				for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ )
+				{
+					var attribute = attributes[i];
+					/^(\w+)\s*(?:([~|]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
+					var attrName  = RegExp.$1;
+					var operator  = RegExp.$2;
+					var attrValue = RegExp.$3;
+					expression.push('['+(
+						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
+						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
+						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
+							'@'+attrName
+					)+']');
+				}
+			}
+
+			var pseudDone = true;
+			if (buf.pseud.length) {
+				switch (buf.pseud)
+				{
+					case 'first-child':
+						expression.push('[not(preceding-sibling::*)]');
 						break;
-					}
+					case 'last-child':
+						expression.push('[not(following-sibling::*)]');
+						break;
+					case 'first-of-type':
+						expression.push('[not(preceding-sibling::*'+nameCondition+')]');
+					case 'last-of-type':
+						expression.push('[not(following-sibling::*'+nameCondition+')]');
+						break;
+					case 'only-child':
+						expression.push('[not(preceding-sibling::*)and not(following-sibling::*)]');
+						break;
+					case 'only-of-type':
+						expression.push('[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]');
+						break;
+					case 'empty':
+						expression.push('[not(child::node())]');
+						break;
+					case 'link':
+						expression.push('[local-name() = "link" or local-name() = "LINK" or local-name() = "a" or local-name() = "A" or local-name() = "area" or local-name() = "AREA"]');
+						break;
+					case 'enabled':
+						expression.push('[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]');
+						break;
+					case 'disabled':
+						expression.push('[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]');
+						break;
+					case 'checked':
+						expression.push('[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]');
+						break;
+					case 'indeterminate':
+						expression.push('[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]');
+						break;
+					case 'root':
+						expression.push('[not(ancestor::*)]');
+						break;
+					default:
+						pseudDone = false;
+						break;
 				}
 			}
-			// Class
-			if ( buf.class.length != 0 ) {
-				var classes = buf.class.split('.');
-				var targets = found;
 
-				var getElementsByClassName = function ( classRegex, targetElements ) {
-					var elements = [];
-					var elmCount = 0
-					for ( var i = 0, len = targetElements.length; i < len; i ++ ) {
-						var element = targetElements[i];
-						var className = element.className;
-						if ( className && className.match( classRegex ) ) {
-							elements[elmCount++] = element;
-						}
-					}
-					return elements;
-				}
+//			dump(expression.join('')+'\n');
 
-				for ( var i = 0, class_len = classes.length; i < class_len; i++ ) {
-					var classRegex = new RegExp('(^|\\s)' + classes[i] + '(\\s|$)');
-					if ( i == 0 ) {
-						found = getElementsByClassName( classRegex, targets );
-					}
-					else {
-						found = getElementsByClassName( classRegex, found );
-					}
+			expression = expression.join('');
+			for ( var i = 0, len = foundElements.length; i < len; i++ ) {
+				var nodes = self.getNodesByXPath(expression, foundElements[i]);
+				for ( var j = 0, node_len = nodes.snapshotLength; j < node_len; j++ ) {
+					found.push(nodes.snapshotItem(j));
 				}
 			}
 
@@ -243,46 +238,8 @@ var TextShadowService = {
 				return elements;
 			}
 
-			// Attribute
-			if ( buf.attributes.length != 0 ) {
-				var attributes = buf.attributes;
-				var targets = found;
-
-				for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ ) {
-					var attribute = attributes[i];
-
-					attribute.match(/^(\w+)(?:([~|]?=)["](.+?)["])?$/);
-					var attrName  = RegExp.$1;
-					var operator  = RegExp.$2;
-					var attrValue = RegExp.$3;
-
-					var checkFunc;
-					switch ( operator ) {
-						case  '=': // E[attr="foo"]
-							checkFunc = function (e) { return ( e.getAttribute(attrName) && e.getAttribute(attrName) == attrValue ) ? 1 : -1 };
-							break;
-						case '~=': // E[attr~="foo"]
-							checkFunc = function (e) { return ( e.getAttribute(attrName) && e.getAttribute(attrName).match( new RegExp('\\b' + attrValue + '\\b') ) ) ? 1 : -1 };
-							break;
-						case '|=': // E[lang|="en"]
-							checkFunc = function (e) { return ( e.getAttribute(attrName) && e.getAttribute(attrName).match( new RegExp('^' + attrValue + '-?') ) ) ? 1 : -1 };
-							break;
-						default  : // E[attr]
-							checkFunc = function (e) { return ( e.getAttribute(attrName) ) ? 1 : -1 };
-							break;
-					}
-
-					if ( i == 0 ) {
-						found = getElementsByCondition( checkFunc, targets );
-					}
-					else {
-						found = getElementsByCondition( checkFunc, found );
-					}
-				}
-
-			}
 			// Pseud-class
-			if ( buf.pseud.length != 0 ) {
+			if (!pseudDone && buf.pseud.length) {
 				var getFirstLetters = function(targetElements) {
 					var elements = [];
 					var first = aTargetDocument.createElement('_moz-first-letter');
@@ -377,60 +334,6 @@ var TextShadowService = {
 						found = getFirstLines(found);
 						break;
 
-					case 'first-child':
-						found = getElementsByCondition(function(aElement) {
-							return self.getNodesByXPath('preceding-sibling::*', aElement).snapshotLength ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'last-child':
-						found = getElementsByCondition(function(aElement) {
-							return self.getNodesByXPath('following-sibling::*', aElement).snapshotLength ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'first-of-type':
-						found = getElementsByCondition(function(aElement) {
-							return self.getNodesByXPath('preceding-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'last-of-type':
-						found = getElementsByCondition(function(aElement) {
-							return self.getNodesByXPath('following-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'only-child':
-						found = getElementsByCondition(function(aElement) {
-							return (
-								self.getNodesByXPath('preceding-sibling::*', aElement).snapshotLength ||
-								self.getNodesByXPath('following-sibling::*', aElement).snapshotLength
-							) ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'only-of-type':
-						found = getElementsByCondition(function(aElement) {
-							return (
-								self.getNodesByXPath('preceding-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength ||
-								self.getNodesByXPath('following-sibling::*[local-name() = "' + aElement.localName + '" or local-name() = "' + aElement.localName.toUpperCase() + '"]', aElement).snapshotLength
-							) ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'empty':
-						found = getElementsByCondition(function(aElement) {
-							return aElement.hasChildNodes() ? -1 : 1 ;
-						}, found);
-						break;
-
-					case 'link':
-						found = getElementsByCondition(function(aElement) {
-							return (/^(link|a|area)$/i.test(aElement.localName) && (aElement.href || aElement.getAttribute('href'))) ? 1 : -1 ;
-						}, found);
-						break;
-
 					case 'visited':
 						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
 						found = getElementsByCondition(function(aElement) {
@@ -457,58 +360,8 @@ var TextShadowService = {
 						}, found);
 						break;
 
-					case 'enabled':
-						found = getElementsByCondition(function(aElement) {
-							var enabled = (aElement.getAttribute('enabled') || '').toLowerCase();
-							var disabled = (aElement.getAttribute('disabled') || '').toLowerCase();
-							return (
-								(enabled && (enabled == 'true' || enabled == 'enabled')) ||
-								(disabled && (disabled == 'false' || (disabled != 'true' && disabled != 'disabled')))
-								) ? 1 : -1 ;
-						}, found);
-						break;
-
-					case 'disabled':
-						found = getElementsByCondition(function(aElement) {
-							var enabled = (aElement.getAttribute('enabled') || '').toLowerCase();
-							var disabled = (aElement.getAttribute('disabled') || '').toLowerCase();
-							return (
-								(!enabled || (enabled != 'true' && enabled != 'enabled')) ||
-								(disabled && (disabled == 'true' || disabled == 'disabled'))
-								) ? 1 : -1 ;
-						}, found);
-						break;
-
-					case 'checked':
-						found = getElementsByCondition(function(aElement) {
-							var checked = (aElement.getAttribute('checked') || '').toLowerCase();
-							var selected = (aElement.getAttribute('selected') || '').toLowerCase();
-							return (
-								(checked && (checked == 'true' || checked == 'checked')) ||
-								(selected && (selected == 'true' || selected == 'selected'))
-								) ? 1 : -1 ;
-						}, found);
-						break;
-
-					case 'indeterminate':
-						found = getElementsByCondition(function(aElement) {
-							var checked = (aElement.getAttribute('checked') || '').toLowerCase();
-							var selected = (aElement.getAttribute('selected') || '').toLowerCase();
-							return (
-								(!checked || (checked != 'true' && checked != 'checked')) ||
-								(!selected || (selected != 'true' && selected != 'checked'))
-								) ? 1 : -1 ;
-						}, found);
-						break;
-
-					case 'root':
-						found = getElementsByCondition(function(aElement) {
-							return aElement == aTargetDocument.documentElement ? 1 : -1 ;
-						}, found);
-						break;
-
 					default:
-						found = [];
+						if (pseudDone) found = [];
 						break;
 				}
 			}

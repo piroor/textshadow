@@ -678,7 +678,7 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.TAG_BOX_CONDITION+'])]', aElement);
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.TAG_BOX_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
 			var wrapper = d.createElement(this.TAG_BOX);
 			wrapper.setAttribute('style', 'position: relative;');
 			var original = d.createElement(this.TAG_ORIGINAL);

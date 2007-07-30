@@ -2,12 +2,16 @@
 p.test1:first-line {
 	text-shadow: 2px 2px red;
 }
-p.test2:first-letter {
+p.test2:first-letter,
+li[testAttr="hoge"],
+li[testAttr~="bar"],
+li[lang|="en"] {
 	text-shadow: 2px 2px red;
 }
 p:last-child,
 :target,
-:checked {
+:checked,
+ul.test li+li {
 	text-shadow: 2px 2px 2px blue;
 }
 
@@ -49,5 +53,20 @@ p:last-child,
 	<li><input type="text" size="10" value="hogehogehoge" /></li>
 </ul>
 
-<p class="test3">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+<ul class="test">
+	<li>項目</li>
+	<li>項目</li>
+	<li testAttr="hoge">項目：赤</li>
+	<li testAttr="foo bar hogehoge">項目：赤</li>
+	<li lang="en-US">項目：赤</li>
+	<li>項目</li>
+</ul>
+<script type="text/javascript" src="selector.js.txt"></script>
+<script type="text/javascript"><!--
 
+document.write('<p>OK<'+'/p>');
+
+//--></script>
+
+
+<p class="test3">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>

@@ -112,7 +112,6 @@ var TextShadowService = {
 			'id'          : '',
 			'class'       : '',
 			'pseud'       : '',
-			'pseudArg'    : '',
 			'combinators' : ' ',
 			'clear'       : function () {
 				this.element     = '';
@@ -121,7 +120,6 @@ var TextShadowService = {
 				this.id          = '';
 				this.class       = '';
 				this.pseud       = '';
-				this.pseudArg    = '';
 				this.combinators = '';
 			}
 		};
@@ -332,13 +330,13 @@ var TextShadowService = {
 						expression[expressionCount++] = '[not(ancestor::*)]';
 						break;
 					default:
-						var condition = /'^nth-(last-)?of-type'/.test(buf.pseud) ? '['+nameCondition+']' : '' ;
+						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
 						if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') = '+RegExp.$2+']';
+							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
 						}
 						else if (/nth-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod '+RegExp.$2+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+' = 0]';
+							expression[expressionCount++] = '[(count(preceding-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
 						}
 						else if (/nth-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
 							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 0]';
@@ -347,11 +345,11 @@ var TextShadowService = {
 							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 1]';
 						}
 
-						if (/nth-last-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
+						else if (/nth-last-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
 							expression[expressionCount++] = '[count(following-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
 						}
 						else if (/nth-last-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod '+(parseInt(RegExp.$2)-1)+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+' = 0]';
+							expression[expressionCount++] = '[(count(following-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
 						}
 						else if (/nth-last-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
 							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 0]';
@@ -360,7 +358,7 @@ var TextShadowService = {
 							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
 						}
 
-						else if (/contains(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
+						else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
 							expression[expressionCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
 						}
 
@@ -426,7 +424,9 @@ var TextShadowService = {
 
 
 		var escaped = false;
-		for ( var i = 0, len = tokens.length; i < len; i++  ) {
+		var inParen = false;
+		for ( var i = 0, len = tokens.length; i < len; i++  )
+		{
 			var token = tokens[i];
 			if (escaped) {
 				buf[mode] += token;
@@ -462,18 +462,15 @@ var TextShadowService = {
 					break;
 				case '(':
 					if (mode == 'pseud') {
-						mode = 'pseudArg';
+						inParen = true;
 					}
-					else {
-						buf[mode] += token;
-					}
+					buf[mode] += token;
 					break;
 				case ')':
-					if (mode == 'pseudArg') {
+					buf[mode] += token;
+					if (mode == 'pseud' && inParen) {
+						inParen = false;
 						mode = 'element';
-					}
-					else {
-						buf[mode] += token;
 					}
 					break;
 
@@ -489,7 +486,7 @@ var TextShadowService = {
 					mode = 'element';
 					break;
 				case '+':
-					if (mode == 'pseudArg') {
+					if (inParen) {
 						buf[mode] += token;
 					}
 					else {
@@ -499,7 +496,7 @@ var TextShadowService = {
 					}
 					break;
 				case '~':
-					if (mode == 'attribute' || mode == 'pseudArg') {
+					if (mode == 'attribute' || inParen) {
 						buf[mode] += token;
 					}
 					else {
@@ -511,7 +508,7 @@ var TextShadowService = {
 
 				// elements
 				case '*':
-					if (mode == 'attribute' || mode == 'pseudArg') {
+					if (mode == 'attribute' || inParen) {
 						buf[mode] += token;
 					}
 					else {
@@ -535,7 +532,6 @@ var TextShadowService = {
 				expression.splice(expressionCount-1, 1);
 			foundElements = evaluate(expression.join(''), foundElements);
 		}
-		dump(foundElements.length+'\n');
 
 		return foundElements;
 	},

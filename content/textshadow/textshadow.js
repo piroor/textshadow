@@ -576,27 +576,25 @@ var TextShadowService = {
 			}
 		}
 		search();
-		if (stepsCount) {
-			if (aInNotPseudClass) {
-				steps.reverse();
-				var isFirst = true;
-				for (var i = 0, maxi = steps.length; i < maxi; i++)
-				{
-					if (isFirst) {
-						steps[i] = steps[i]
-									.replace(/^[^:\*]*(::)?/, 'self::');
-						isFirst = false;
-					}
-					else {
-						steps[i] = steps[i]
-									.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
-									.replace(/^descendant/, 'ancestor');
-					}
+		if (stepsCount && aInNotPseudClass) {
+			steps.reverse();
+			var isFirst = true;
+			for (var i = 0, maxi = steps.length; i < maxi; i++)
+			{
+				if (isFirst) {
+					steps[i] = steps[i]
+								.replace(/^[^:\*]*(::)?/, 'self::');
+					isFirst = false;
+				}
+				else {
+					steps[i] = steps[i]
+								.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
+								.replace(/^descendant/, 'ancestor');
 				}
 			}
 		}
 
-		return steps.length  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
+		return stepsCount  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
 	},
   
 	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 

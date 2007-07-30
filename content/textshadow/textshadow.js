@@ -95,7 +95,27 @@ var TextShadowService = {
  
 	getElementsBySelector : function(aSelector, aTargetDocument) 
 	{
+//var startTime = (new Date()).getTime();
+		var nodes = [];
+		var count = 0;
+
+		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument);
+		if (!expression) return nodes;
+
+		result = this.getNodesByXPath(expression, aTargetDocument);
+		for (var i = 0, maxi = result.snapshotLength; i < maxi; i++)
+		{
+			nodes[count++] = result.snapshotItem(i);
+		}
+//var endTime = (new Date()).getTime();
+//dump('getElementsBySelector '+(endTime-startTime)+'\n');
+		return nodes;
+	},
+	
+	convertSelectorToXPath : function(aSelector, aTargetDocument, aInNotPseudClass) 
+	{
 		var self = this;
+		var foundElements = [aTargetDocument];
 
 		var tokens = aSelector
 					.replace(/\s+/g, ' ')
@@ -103,7 +123,6 @@ var TextShadowService = {
 //dump(tokens+'\n');
 
 		tokens = tokens.split('');
-		var foundElements = [aTargetDocument];
 
 		var buf = {
 			'element'     : '',
@@ -126,16 +145,18 @@ var TextShadowService = {
 
 		var mode = 'element';
 
-		var expression = [];
-		var expressionCount = 0;
+		var steps = [];
+		var stepsCount = 0;
 
 		function evaluate(aExpression, aTargetElements)
 		{
+			if (!aExpression) return aTargetElements;
 			var found = [];
 			var foundCount = 0;
-			for (var i = 0, maxi = aTargetElements.length; i < maxi; i++ ) {
+			for (var i = 0, maxi = aTargetElements.length; i < maxi; i++)
+			{
 				var nodes = self.getNodesByXPath(aExpression, aTargetElements[i]);
-				for (var j = 0, maxj = nodes.snapshotLength; j < maxj; j++ )
+				for (var j = 0, maxj = nodes.snapshotLength; j < maxj; j++)
 				{
 					found[foundCount++] = nodes.snapshotItem(j);
 				}
@@ -246,7 +267,10 @@ var TextShadowService = {
 
 		function search()
 		{
-			expression[expressionCount++] =
+			var step = [];
+			var stepCount = 0;
+
+			step[stepCount++] =
 				buf.combinators == '>' ? '*' :
 				buf.combinators == '+' ? 'following-sibling::*[1]' :
 				buf.combinators == '~' ? 'following-sibling::*' :
@@ -256,15 +280,15 @@ var TextShadowService = {
 			var nameCondition = '';
 			if (tagName != '*') {
 				nameCondition = '[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
-				expression[expressionCount++] = nameCondition;
+				step[stepCount++] = nameCondition;
 			}
 
-			if (buf.id.length) expression[expressionCount++] = '[@id = "'+buf.id+'"]';
+			if (buf.id.length) step[stepCount++] = '[@id = "'+buf.id+'"]';
 			if (buf.class.length) {
 				var classes = buf.class.split('.').map(function(aItem) {
 						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
 					});
-				expression[expressionCount++] = '['+classes.join(' and ')+']';
+				step[stepCount++] = '['+classes.join(' and ')+']';
 			}
 			if (buf.attributes.length) {
 				var attributes = buf.attributes;
@@ -275,7 +299,7 @@ var TextShadowService = {
 					var attrName  = RegExp.$1;
 					var operator  = RegExp.$2;
 					var attrValue = RegExp.$3;
-					expression[expressionCount++] = '['+(
+					step[stepCount++] = '['+(
 						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
 						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
 						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
@@ -292,74 +316,78 @@ var TextShadowService = {
 				switch (buf.pseud)
 				{
 					case 'first-child':
-						expression[expressionCount++] = '[not(preceding-sibling::*)]';
+						step[stepCount++] = '[not(preceding-sibling::*)]';
 						break;
 					case 'last-child':
-						expression[expressionCount++] = '[not(following-sibling::*)]';
+						step[stepCount++] = '[not(following-sibling::*)]';
 						break;
 					case 'first-of-type':
-						expression[expressionCount++] = '[1]';
+						step[stepCount++] = '[1]';
 					case 'last-of-type':
-						expression[expressionCount++] = '[last()]';
+						step[stepCount++] = '[last()]';
 						break;
 					case 'only-child':
-						expression[expressionCount++] = '[not(preceding-sibling::*) and not(following-sibling::*)]';
+						step[stepCount++] = '[not(preceding-sibling::*) and not(following-sibling::*)]';
 						break;
 					case 'only-of-type':
-						expression[expressionCount++] = '[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]';
+						step[stepCount++] = '[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]';
 						break;
 					case 'empty':
-						expression[expressionCount++] = '[not(node())]';
+						step[stepCount++] = '[not(node())]';
 						break;
 					case 'link':
-						expression[expressionCount++] = '[contains(" link LINK a A area AREA ", concat(" ", local-name(), " ")]';
+						step[stepCount++] = '[contains(" link LINK a A area AREA ", concat(" ", local-name(), " ")]';
 						break;
 					case 'enabled':
-						expression[expressionCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
+						step[stepCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
 						break;
 					case 'disabled':
-						expression[expressionCount++] = '[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]';
+						step[stepCount++] = '[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]';
 						break;
 					case 'checked':
-						expression[expressionCount++] = '[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]';
+						step[stepCount++] = '[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]';
 						break;
 					case 'indeterminate':
-						expression[expressionCount++] = '[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]';
+						step[stepCount++] = '[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]';
 						break;
 					case 'root':
-						expression[expressionCount++] = '[not(ancestor::*)]';
+						step[stepCount++] = '[not(ancestor::*)]';
 						break;
 					default:
 						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
-						if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
+						if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
+							step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, true)+')]';
+						}
+
+						else if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
+							step[stepCount++] = '[count(preceding-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
 						}
 						else if (/nth-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[(count(preceding-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
+							step[stepCount++] = '[(count(preceding-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
 						}
 						else if (/nth-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 0]';
+							step[stepCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 0]';
 						}
 						else if (/nth-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 1]';
+							step[stepCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 1]';
 						}
 
 						else if (/nth-last-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(following-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
+							step[stepCount++] = '[count(following-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
 						}
 						else if (/nth-last-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[(count(following-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
+							step[stepCount++] = '[(count(following-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
 						}
 						else if (/nth-last-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 0]';
+							step[stepCount++] = '[count(following-sibling::*'+condition+') mod 2 = 0]';
 						}
 						else if (/nth-last-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
+							step[stepCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
 						}
 
 						else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
-							expression[expressionCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
+							step[stepCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
 						}
 
 						else {
@@ -371,17 +399,17 @@ var TextShadowService = {
 
 			// Pseud-class
 			if (!pseudEvaluated && buf.pseud.length) {
-				var found = evaluate(expression.join(''), foundElements);
-				expression = [];
-				expressionCount = 0;
+				var found = evaluate(steps.join('/')+'/'+step.join(''), foundElements);
 				switch (buf.pseud)
 				{
 					case 'first-letter':
 						found = getFirstLetters(found);
+						step[stepCount++] = '/*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
 						break;
 
 					case 'first-line':
 						found = getFirstLines(found);
+						step[stepCount++] = '/*[local-name() = "_moz-first-LINE" or local-name() = "_MOZ-FIRST-LINE"]';
 						break;
 
 					case 'visited':
@@ -398,33 +426,41 @@ var TextShadowService = {
 									dump(uri+' / '+self.makeURIFromSpec(uri));
 									dump(e+'\n');
 								}
+								if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
 							}
 							return isLink && isVisited ? 1 : -1 ;
 						}, found);
+						step[stepCount++] = '[@_moz-pseud-class-visited = "true"]';
 						break;
 
 					case 'target':
 						found = getElementsByCondition(function(aElement) {
 							(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-							return (RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1)) ? 1 : -1 ;
+							var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+							if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+							return isTarget ? 1 : -1 ;
 						}, found);
+						step[stepCount++] = '[@_moz-pseud-class-target = "true"]';
 						break;
 
 					default:
-						found = [];
+						steps      = [];
+						stepsCount = 0;
+						step       = [];
+						stepCount  = 0;
+						found      = [];
 						break;
 				}
 				foundElements = found;
 			}
-			else {
-				expression[expressionCount++] = '/';
-			}
+
+			if (stepCount) steps[stepsCount++] = step.join('');
 			buf.clear();
 		};
 
 
 		var escaped = false;
-		var inParen = false;
+		var parenLevel = 0;
 		for ( var i = 0, len = tokens.length; i < len; i++  )
 		{
 			var token = tokens[i];
@@ -433,7 +469,13 @@ var TextShadowService = {
 				escaped = false;
 				continue;
 			}
-			switch ( token ) {
+			else if (parenLevel && token != ')') {
+				if (token == '(')  parenLevel++;
+				buf[mode] += token;
+				continue;
+			}
+			switch (token)
+			{
 				case '\\':
 					escaped = true;
 					break;
@@ -462,15 +504,15 @@ var TextShadowService = {
 					break;
 				case '(':
 					if (mode == 'pseud') {
-						inParen = true;
+						parenLevel++;
 					}
 					buf[mode] += token;
 					break;
 				case ')':
 					buf[mode] += token;
-					if (mode == 'pseud' && inParen) {
-						inParen = false;
-						mode = 'element';
+					if (parenLevel) {
+						parenLevel--;
+						if (!parenLevel) mode = 'element';
 					}
 					break;
 
@@ -486,17 +528,12 @@ var TextShadowService = {
 					mode = 'element';
 					break;
 				case '+':
-					if (inParen) {
-						buf[mode] += token;
-					}
-					else {
-						search();
-						buf.combinators = '+';
-						mode = 'element';
-					}
+					search();
+					buf.combinators = '+';
+					mode = 'element';
 					break;
 				case '~':
-					if (mode == 'attribute' || inParen) {
+					if (mode == 'attribute' || parenLevel) {
 						buf[mode] += token;
 					}
 					else {
@@ -508,7 +545,7 @@ var TextShadowService = {
 
 				// elements
 				case '*':
-					if (mode == 'attribute' || inParen) {
+					if (mode == 'attribute' || parenLevel) {
 						buf[mode] += token;
 					}
 					else {
@@ -522,20 +559,33 @@ var TextShadowService = {
 					break;
 
 			}
-			if ( foundElements.length == 0 ) {
-				return foundElements;
+			if (!foundElements.length) {
+				return '';
 			}
 		}
 		search();
-		if (expressionCount) {
-			if (expression[expressionCount-1] == '/')
-				expression.splice(expressionCount-1, 1);
-			foundElements = evaluate(expression.join(''), foundElements);
+		if (stepsCount) {
+			if (aInNotPseudClass) {
+				steps.reverse();
+				var isFirst = true;
+				for (var i = 0, maxi = steps.length; i < maxi; i++)
+				{
+					if (isFirst) {
+						steps[i] = steps[i].replace(/^[^:]*/, 'self');
+						isFirst = false;
+					}
+					else {
+						steps[i] = steps[i]
+									.replace(/^([^:]*|child)/, 'parent')
+									.replace(/^descendant/, 'ancestor');
+					}
+				}
+			}
 		}
 
-		return foundElements;
+		return steps.join('/');
 	},
- 
+  
 	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 
 	{
 		if (!aCSSLength || typeof aCSSLength == 'number')
@@ -571,7 +621,7 @@ var TextShadowService = {
 
 		return 0;
 	},
- 
+ 	
 	getComputedPixels : function(aNode, aProperty) 
 	{
 		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
@@ -1195,7 +1245,7 @@ var TextShadowService = {
 		}
 		return retVal;
 	},
- 	 
+  
 /* Initializing */ 
 	 
 	init : function() 

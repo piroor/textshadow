@@ -444,14 +444,22 @@ var TextShadowService = {
 					case 'first-letter':
 						if (self.silhouettePseudElementsAndClasses) {
 							found = getFirstLetters(found);
-							step[stepCount++] = '/*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
+							if (stepCount) {
+								steps[stepsCount++] = step.join('');
+								stepCount = 0;
+							}
+							steps[stepsCount++] = 'descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
 							break;
 						}
 
 					case 'first-line':
 						if (self.silhouettePseudElementsAndClasses) {
 							found = getFirstLines(found);
-							step[stepCount++] = '/*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]';
+							if (stepCount) {
+								steps[stepsCount++] = step.join('');
+								stepCount = 0;
+							}
+							steps[stepsCount++] = 'descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]';
 							break;
 						}
 
@@ -1189,8 +1197,11 @@ var TextShadowService = {
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
+//var startTime = (new Date()).getTime();
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
+//var endTime = (new Date()).getTime();
+//dump('updateShadow '+(endTime - startTime)+'\n');
 	},
  
 	updateAllShadows : function(aTabBrowser, aReason) 

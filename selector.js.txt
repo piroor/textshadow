@@ -449,14 +449,22 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				case 'first-letter':
 					if (silhouettePseudElementsAndClasses) {
 						found = getFirstLetters(found);
-						step[stepCount++] = '/*[@class = "pseud-first-letter"]';
+						if (stepCount) {
+							steps[stepsCount++] = step.join('');
+							stepCount = 0;
+						}
+						steps[stepsCount++] = 'descendant::**[@class = "pseud-first-letter"]';
 						break;
 					}
 
 				case 'first-line':
 					if (silhouettePseudElementsAndClasses) {
 						found = getFirstLines(found);
-						step[stepCount++] = '/*[@class = "pseud-first-line"]';
+						if (stepCount) {
+							steps[stepsCount++] = step.join('');
+							stepCount = 0;
+						}
+						steps[stepsCount++] = '/descendant::**[@class = "pseud-first-line"]';
 						break;
 					}
 

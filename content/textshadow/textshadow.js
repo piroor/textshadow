@@ -596,7 +596,7 @@ var TextShadowService = {
 			}
 		}
 
-		return steps.join('/');
+		return steps.length  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
 	},
   
 	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 

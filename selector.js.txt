@@ -600,7 +600,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 		}
 	}
 
-	return steps.join('/');
+	return steps.length  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
 };
 
 document.getNodesByXPath = function(aExpression, aContext, aLive) 

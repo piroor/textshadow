@@ -638,7 +638,7 @@ var TextShadowService = {
 					return aCSSLength * fontSize * 0.5;
 
 				case 'in':
-					return aCSSLength * dpi:
+					return aCSSLength * dpi;
 					break;
 
 				case 'pt':
@@ -649,10 +649,10 @@ var TextShadowService = {
 					break;
 
 				case 'mm':
-					return aCSSLength * dpi * 0.03937:
+					return aCSSLength * dpi * 0.03937;
 					break;
 				case 'cm':
-					return aCSSLength * dpi * 0.3937:
+					return aCSSLength * dpi * 0.3937;
 					break;
 			}
 		}

@@ -14,18 +14,92 @@ var TextShadowService = {
 
 	ID_PREFIX       : '_moz-textshadow-target-',
 
-	TAG_BOX         : '_moz-textshadow-box',
-	TAG_ORIGINAL    : '_moz-textshadow-original',
-	TAG_BASE        : '_moz-textshadow-base',
-	TAG_SHADOW      : '_moz-textshadow-shadow',
-	TAG_SHADOW_PART : '_moz-textshadow-shadow-part',
-	TAG_DUMMY       : '_moz-textshadow-dummy-box',
+	BOX           : 'span',
+	BOX_CLASS     : '_moz-textshadow-box',
+	BOX_CONDITION : '@class = "_moz-textshadow-box"',
+
+	FIRSTLETTER           : 'span',
+	FIRSTLETTER_CLASS     : '_moz-first-letter-pseud',
+	FIRSTLETTER_CONDITION : '@class = "_moz-first-letter-pseud"',
+
+	FIRSTLINE           : 'span',
+	FIRSTLINE_CLASS     : '_moz-first-line-pseud',
+	FIRSTLINE_CONDITION : '@class = "_moz-first-line-pseud"',
 
 	ATTR_DRAW_CUE   : '_moz-textshadow-cue',
 	ATTR_DRAW_TIMER : '_moz-textshadow-draw-timer',
 	ATTR_STYLE      : '_moz-textshadow-style',
 	ATTR_SCANNED    : '_moz-textshadow-scanned',
 	ATTR_CACHE      : '_moz-textshadow',
+
+	STYLESHEET : String(<![CDATA[
+		@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+		@namespace html url("http://www.w3.org/1999/xhtml");
+		*|*._moz-textshadow-box {
+			-moz-binding: url(chrome://textshadow/content/textshadow.xml#textshadow-box) !important;
+		}
+		*|*._moz-textshadow-box,
+		*|*._moz-first-line-pseud,
+		*|*._moz-first-letter-pseud {
+			background: transparent !important;
+			border: none !important;
+			bottom: auto !important;
+			caption-side: top !important;
+			clear: none !important;
+			clip: auto !important;
+			color: black !important;
+		/* Mozilla don't know these properties.
+			counter-increment: none !important;
+			counter-reset: none !important;
+		*/
+			cursor: inherit !important;
+			direction: inherit !important;
+			display: table-cell !important;
+			empty-cells: show !important;
+			float: none !important;
+			font-family: inherit !important;
+			font-style: normal !important;
+			font-size-adjust: none !important;
+			font-stretch: normal !important;
+			font-variant: normal !important;
+			font-weight: normal !important;
+			height: auto !important;
+			left: auto !important;
+			letter-spacing: inherit !important;
+			line-height: 90% !important;
+			list-style: none !important;
+			margin: 0 !important;
+			max-height: none !important;
+			max-width: none !important;
+			min-height: 0 !important;
+			min-width: 0 !important;
+			orphans: 2 !important;
+			outline: none !important;
+			padding: 0 !important;
+			page: auto !important;
+			page-break-after: auto !important;
+			page-break-before: auto !important;
+			page-break-inside: auto !important;
+			position: static !important;
+			quotes: none !important;
+			right: auto !important;
+			table-layout: auto !important;
+			text-align: center !important;
+			text-decoration: none !important;
+			text-indent: 0 !important;
+			text-shadow: none !important;
+			text-transform: none !important;
+			top: auto !important;
+			unicode-bidi: inherit !important;
+			vertical-align: baseline !important;
+			visibility: inherit !important;
+			white-space: inherit !important;
+			widows: 2 !important;
+			width: auto !important;
+			word-spacing: normal !important;
+			z-index: auto !important;
+		}
+	]]>),
 	 
 /* Utilities */ 
 	 
@@ -69,30 +143,6 @@ var TextShadowService = {
 			nodes = document.evaluate(aExpression, aContext, null, type, null);
 		}
 		return nodes;
-	},
- 
-	getSizeBox : function(aNode) 
-	{
-		var d = aNode.ownerDocument;
-		var w = d.defaultView;
-		var box = aNode;
-		while ((display = w.getComputedStyle(box, null).getPropertyValue('display')) != 'block' && display != '-moz-box' && box.parentNode)
-		{
-			box = box.parentNode;
-		}
-		if (box == d) box = d.documentElement;
-		return {
-			sizeBox   : box,
-			indent    : this.getComputedPixels(box, 'text-indent'),
-			width     : d.getBoxObjectFor(aNode).width,
-			height    : d.getBoxObjectFor(aNode).height,
-			boxWidth  : d.getBoxObjectFor(box).width
-					- this.getComputedPixels(box, 'padding-left')
-					- this.getComputedPixels(box, 'padding-right'),
-			boxHeight : d.getBoxObjectFor(box).height
-				- this.getComputedPixels(box, 'padding-top')
-				- this.getComputedPixels(box, 'padding-bottom')
-		};
 	},
  
 	getElementsBySelector : function(aSelector, aTargetDocument) 
@@ -187,10 +237,11 @@ var TextShadowService = {
 		{
 			var elements = [];
 			var count = 0;
-			var first = aTargetDocument.createElement('_moz-first-letter');
+			var first = aTargetDocument.createElement(self.FIRSTLETTER);
+			first.setAttribute('class', self.FIRSTLETTER_CLASS);
 			for (var i = 0, len = targetElements.length; i < len; i++)
 			{
-				var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]', targetElements[i]);
+				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLETTER_CONDITION+']', targetElements[i]);
 				if (firsts.snapshotLength) {
 					elements[count++] = firsts.snapshotItem(0);
 				}
@@ -212,14 +263,16 @@ var TextShadowService = {
 			var elements = [];
 			var count = 0;
 			var d = aTargetDocument;
-			var first = d.createElement('_moz-first-line');
+			var first = d.createElement(self.FIRSTLINE);
+			first.setAttribute('class', self.FIRSTLINE_CLASS);
+
 			var dummy = d.createElement('_moz-dummy-box');
 			var dummy1 = dummy.cloneNode(true);
 			var dummy2 = dummy.cloneNode(true);
 			var range = d.createRange();
 			for (var i = 0, len = targetElements.length; i < len; i++)
 			{
-				var firsts = self.getNodesByXPath('descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]', targetElements[i]);
+				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLINE_CONDITION+']', targetElements[i]);
 				if (firsts.snapshotLength) {
 					elements[count++] = firsts.snapshotItem(0);
 				}
@@ -435,7 +488,7 @@ var TextShadowService = {
 								steps[stepsCount++] = step.join('');
 								stepCount = 0;
 							}
-							steps[stepsCount++] = 'descendant::*[local-name() = "_moz-first-letter" or local-name() = "_MOZ-FIRST-LETTER"]';
+							steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
 							break;
 						}
 
@@ -446,7 +499,7 @@ var TextShadowService = {
 								steps[stepsCount++] = step.join('');
 								stepCount = 0;
 							}
-							steps[stepsCount++] = 'descendant::*[local-name() = "_moz-first-line" or local-name() = "_MOZ-FIRST-LINE"]';
+							steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
 							break;
 						}
 
@@ -612,64 +665,6 @@ var TextShadowService = {
 		return expressionsCount ? expressions.join(' | ') : '' ;
 	},
   
-	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 
-	{
-		if (!aCSSLength || typeof aCSSLength == 'number')
-			return aCSSLength;
-
-		var w = aTargetNode.ownerDocument.defaultView;
-		var fontSize = this.getComputedPixels(aTargetNode, 'font-size');
-		var unit = aCSSLength.match(/em|ex|px|\%|mm|cm|in|pt|pc/i);
-		var dpi = 72; // âÊñ âëúìxÇÕ72dpiÇ∆Ç›Ç»Ç∑
-		if (unit) {
-			aCSSLength = Number(aCSSLength.match(/^[-0-9\.]+/));
-			switch (String(unit).toLowerCase())
-			{
-				case 'px':
-					return aCSSLength;
-
-				case '%':
-					return aCSSLength / 100 * aParentWidth;
-
-				case 'em':
-					return aCSSLength * fontSize * 0.7;
-
-				case 'ex':
-					return aCSSLength * fontSize * 0.5;
-
-				case 'in':
-					return aCSSLength * dpi;
-					break;
-
-				case 'pt':
-					return aCSSLength;
-					break;
-				case 'pc':
-					return aCSSLength * 12;
-					break;
-
-				case 'mm':
-					return aCSSLength * dpi * 0.03937;
-					break;
-				case 'cm':
-					return aCSSLength * dpi * 0.3937;
-					break;
-			}
-		}
-
-		return 0;
-	},
- 
-	getComputedPixels : function(aNode, aProperty) 
-	{
-		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
-
-		// line-height
-		if (value.toLowerCase() == 'normal') return this.getComputedPixels(aNode, 'font-size') * 1.2;
-
-		return Number(value.match(/^[-0-9\.]+/));
-	},
- 
 	getJSValueFromAttribute : function(aElement, aAttribute) 
 	{
 		try {
@@ -680,25 +675,15 @@ var TextShadowService = {
 		}
 		return value;
 	},
-  
+ 	 
 /* draw shadow */ 
 	 
 	drawShadow : function(aElement, aX, aY, aRadius, aColor) 
 	{
-//dump('drawShadow '+aElement+'\n  '+[aX, aY, aRadius, aColor]+'\n');
-		if (aX === void(0)) aX = 0;
-		if (aY === void(0)) aY = 0;
-		if (aRadius === void(0)) aRadius = 0;
-
-		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
-			this.clearShadow(aElement);
-			return;
-		}
-
 		var d = aElement.ownerDocument;
 		var boxes = [];
 
-		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.TAG_BOX_CONDITION+']', aElement);
+		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.BOX_CONDITION+']', aElement);
 		if (shadowBoxes.snapshotLength) {
 			for (var i = 0, maxi = shadowBoxes.snapshotLength; i < maxi; i++)
 			{
@@ -706,14 +691,9 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.TAG_BOX_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
-			var wrapper = d.createElement(this.TAG_BOX);
-			wrapper.setAttribute('style', 'position: relative;');
-			var original = d.createElement(this.TAG_ORIGINAL);
-			original.setAttribute('style',
-				'visibility: hidden !important;'
-				+ '-moz-user-select: -moz-none !important;'
-				+ '-moz-user-focus: ignore !important;');
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.BOX_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
+			var wrapper = d.createElement(this.BOX);
+			wrapper.setAttribute('class', this.BOX_CLASS);
 			for (var i = 0, maxi = textNodes.snapshotLength; i < maxi; i++)
 			{
 				var node = textNodes.snapshotItem(i);
@@ -725,204 +705,37 @@ var TextShadowService = {
 					node.parentNode.insertBefore(d.createTextNode(preWhiteSpaces), node);
 				}
 
+				var postWhiteSpaces = node.nodeValue.match(/\s+$/);
+				if (postWhiteSpaces) {
+					node.nodeValue = node.nodeValue.replace(/\s+$/, '');
+					if (node.nextSibling)
+						node.parentNode.insertBefore(d.createTextNode(postWhiteSpaces), node.nextSibling);
+					else
+						node.parentNode.appendChild(d.createTextNode(postWhiteSpaces));
+				}
+
 				var newWrapper = wrapper.cloneNode(true);
-				var newOriginal = original.cloneNode(true);
-				newWrapper.appendChild(newOriginal);
-				newOriginal.appendChild(node.cloneNode(true));
+				newWrapper.appendChild(node.cloneNode(true));
 				node.parentNode.insertBefore(newWrapper, node);
 				node.parentNode.removeChild(node);
 				boxes.push(newWrapper);
 			}
 		}
 
-		var dummy1 = d.createElement(this.TAG_DUMMY);
-		dummy1.appendChild(d.createTextNode('!'));
-		var dummy2 = dummy1.cloneNode(true);
-		dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
-		dummy2.setAttribute('style', 'visibility: hidden;');
-
-
-		var shadow = d.createElement(this.TAG_SHADOW);
-		shadow.setAttribute(this.ATTR_CACHE, ({ x : aX, y : aY, radius : aRadius, color : aColor }).toSource());
-		shadow.setAttribute('style', 'display: none;');
-
-		var part = d.createElement(this.TAG_SHADOW_PART);
 		for (var i in boxes)
 		{
-			var info = this.getSizeBox(boxes[i]);
-			var parentBox = info.sizeBox;
-
-			var color = d.defaultView.getComputedStyle(parentBox, null).getPropertyValue('color');
-			if (!aColor && color == 'transparent') continue;
-
-			var x = this.convertToPixels(aX, boxes[i], info.boxWidth);
-			var y = this.convertToPixels(aY, boxes[i], info.boxHeight);
-			var radius = this.convertToPixels(aRadius, boxes[i], info.boxWidth);
-
-			var quality = 0;
-			var gap;
-			do {
-				gap = quality;
-				quality++;
-				radius = Math.max(Math.max(radius, 1) / quality, 1);
-			}
-			while (radius != 1 && (radius * radius) > 30)
-
-			if (radius != 1) radius *= 1.2; // to show like Safari
-
-			var opacity = 1 / radius;
-			var xOffset = 0;
-			var yOffset = 0;
-
-			if (radius != 1) opacity *= 0.35; // to show like Safari
-
-			var context = d.defaultView.getComputedStyle(boxes[i].parentNode, null).getPropertyValue('display');
-			var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? boxes[i].parentNode : boxes[i]);
-			if (
-				context != 'inline' &&
-				this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i]).snapshotLength
-				)
-				context = 'inline';
-
-			switch (context)
-			{
-				case 'none':
-					return;
-				case 'inline':
-					var lineHeight = this.getComputedPixels(boxes[i].parentNode, 'line-height');
-					yOffset -= Math.round((lineHeight - this.getComputedPixels(boxes[i].parentNode, 'font-size')) / 2);
-					var parentBoxObject = d.getBoxObjectFor(parentBox);
-					if (originalBoxObject.height > lineHeight * 1.5) { // inlineÇ≈ê‹ÇËï‘Ç≥ÇÍÇƒÇ¢ÇÈèÍçá
-						var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
-						xOffset -= delta;
-						info.indent += delta;
-						info.width = info.boxWidth;
-					}
-					break;
-				default:
-					if (this.positionQuality < 1) break;
-					var f = d.createDocumentFragment();
-					f.appendChild(dummy1);
-					f.appendChild(dummy2);
-					boxes[i].appendChild(f);
-					yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
-					boxes[i].removeChild(dummy1);
-					boxes[i].removeChild(dummy2);
-					break;
-			}
-
-			if (
-				parentBox == boxes[i].parentNode &&
-				!this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', boxes[i]).snapshotLength
-				)
-				xOffset -= info.indent;
-
-			var newShadows = shadow.cloneNode(true);
-			for (var j = 0, maxj = radius; j < maxj; j++)
-			{
-				for (var k = 0, maxk = radius; k < maxk; k++)
-				{
-					var newShadow = part.cloneNode(true);
-					newShadow.appendChild(boxes[i].firstChild.firstChild.cloneNode(true));
-					newShadow.setAttribute('style',
-						'position: absolute !important; display: block !important;'
-						+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
-						+ 'opacity: ' + opacity + ' !important;'
-						+ 'top: ' + (j+gap) + 'px !important;'
-						+ 'bottom: ' + (-j-gap) + 'px !important;'
-						+ 'left: ' + (k+gap) + 'px !important;'
-						+ 'right: ' + (-k-gap) + 'px !important;'
-					);
-					newShadows.appendChild(newShadow);
-				}
-			}
-
-			var style = 'position: absolute !important; display: block !important;'
-				+ 'margin: 0 !important; padding: 0 !important;'
-				+ 'text-indent: '+info.indent+'px !important;'
-				+ 'width: ' + Math.min(info.width, info.boxWidth) + 'px !important;';
-
-			var newContent = null;
-			if (boxes[i].childNodes.length < 2) {
-				newContent = d.createElement(this.TAG_BASE);
-				newContent.appendChild(boxes[i].firstChild.firstChild.cloneNode(true));
-				newContent.setAttribute('style', style
-					+ 'z-index: 2 !important;'
-					+ 'top: ' + yOffset + 'px !important;'
-					+ 'bottom: ' + (-yOffset) + 'px !important;'
-					+ 'left: ' + xOffset + 'px !important;'
-					+ 'right: ' + (-xOffset) + 'px !important;');
-			}
-
-			newShadows.setAttribute('style', style
-				+ 'z-index: 1 !important;'
-				+ 'top: ' + (yOffset+y-(radius / 2)) + 'px !important;'
-				+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
-				+ 'left: ' + (xOffset+x-(radius / 2)) + 'px !important;'
-				+ 'right: ' + (-(xOffset+x-(radius / 2))) + 'px !important;'
-				+ '-moz-user-select: -moz-none !important;'
-				+ '-moz-user-focus: ignore !important;'
-				+ 'text-decoration: none !important;'
-				+ 'color: ' + (aColor || color) + ' !important;'
-			);
-
-			var f = d.createDocumentFragment();
-			if (newContent) f.appendChild(newContent);
-			f.appendChild(newShadows);
-			boxes[i].appendChild(f);
+			boxes[i].wrappedJSObject.drawShadow(aX, aY, aRadius, aColor, this.positionQuality);
 		}
 	},
-	
+	 
 	clearShadow : function(aElement) 
 	{
-		var d = aElement.ownerDocument;
-
-/*
-		var sel = d.defaultView.getSelection();
-		var startContainer;
-		var startOffset = -1;
-		var endContainer;
-		var endOffset = -1;
-		var rebuildSelection = false;
-		if (sel.rangeCount) {
-			rebuildSelection = true;
-			var range = sel.getRangeAt(0);
-			startContainer = range.startContainer;
-			startOffset    = range.startOffset;
-			endContainer   = range.endContainer;
-			endOffset      = range.endOffset;
-			var compareRange = d.createRange();
-			compareRange.selectNode(aElement);
-			if (range.compareBoundaryPoints(Range.START_TO_START, compareRange) > -1) {
-				startContainer = null;
-			}
-			if (range.compareBoundaryPoints(Range.END_TO_END, compareRange) < 1) {
-				endContainer = null;
-			}
-			compareRange.detach();
-		}
-*/
-
-		var originals = this.getNodesByXPath('descendant::*['+this.TAG_ORIGINAL_CONDITION+']', aElement);
+		var boxes = this.getNodesByXPath('descendant::*['+this.BOX_CONDITION+']', aElement);
 		var parent;
-		for (var i = 0, maxi = originals.snapshotLength; i < maxi; i++)
+		for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
 		{
-			var node = originals.snapshotItem(i);
-			if (!node.parentNode || !node.parentNode.parentNode) continue;
-			parent = node.parentNode.parentNode;
-			parent.insertBefore(node.removeChild(node.firstChild), node.parentNode);
-			parent.removeChild(node.parentNode);
+			boxes.snapshotItem(i).wrappedJSObject.clear();
 		}
-
-/*
-		if (!rebuildSelection || !parent) return;
-
-		var text = parent.firstChild;
-		var newSel = d.createRange();
-		newSel.setStart(startContainer || text, startOffset);
-		newSel.setEnd(endContainer || text, endOffset);
-		sel.addRange(newSel);
-*/
 	},
   
 	startDrawShadow : function(aFrame) 
@@ -939,7 +752,7 @@ var TextShadowService = {
 		timerId = aFrame.setTimeout(this.delayedDrawShadow, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
-	
+	 
 	delayedDrawShadow : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -998,6 +811,22 @@ var TextShadowService = {
 		{
 			case this.UPDATE_PAGELOAD:
 				var nodes = this.collectTargets(aFrame);
+				if (!nodes) return;
+
+				var newPI = document.createProcessingInstruction('xml-stylesheet',
+						'href="chrome://textshadow/content/textshadow.css" type="text/css" media="all"');
+				try {
+					newPI = d.importNode(newPI, true);
+				}
+				catch(e) {
+				}
+				try {
+					d.insertBefore(newPI, d.documentElement);
+				}
+				catch(e) {
+					dump(e+'\n');
+				}
+
 				nodes.sort(function(aA, aB) {
 					if (typeof aA == 'string') aA = d.getElementById(aA);
 					if (typeof aB == 'string') aB = d.getElementById(aB);
@@ -1211,7 +1040,7 @@ var TextShadowService = {
 		}
 		return (styleContent) ? (styleContent.indexOf('text-shadow') > -1) : true ;
 	},
- 	
+ 
 	collectTargetsFromCSSRules : function(aFrame, aCSSRules) 
 	{
 		var foundNodes = [];
@@ -1283,75 +1112,11 @@ var TextShadowService = {
 		}
 	},
   
-/* override "cmd_copy" command */ 
-	 
-	goDoCommand : function(aCommand) 
-	{
-		var shouldRebuild = (aCommand == 'cmd_copy');
-		var cleared = false;
-		if (shouldRebuild) {
-			var frame = document.commandDispatcher.focusedWindow;
-			if (frame == window) frame = this.browser.contentWindow;
-			var sel = frame.getSelection();
-			if (sel && sel.rangeCount) {
-				var range = sel.getRangeAt(0);
-				var temp = frame.document.createElement('div');
-				temp.appendChild(range.cloneContents());
-				var expression = [
-						'descendant::*['+TextShadowService.TAG_ORIGINAL_CONDITION+' or ',
-							TextShadowService.TAG_BASE_CONDITION+' or ',
-							TextShadowService.TAG_SHADOW_CONDITION+' or ',
-							TextShadowService.TAG_SHADOW_PART_CONDITION+']'
-					].join('')
-				var boxes = TextShadowService.getNodesByXPath(expression, temp);
-				if (boxes.snapshotLength) {
-					expression = [
-						'following::*['+TextShadowService.TAG_ORIGINAL_CONDITION+' or ',
-							TextShadowService.TAG_BASE_CONDITION+' or ',
-							TextShadowService.TAG_SHADOW_CONDITION+' or ',
-							TextShadowService.TAG_SHADOW_PART_CONDITION+']'
-					].join('')
-					boxes = TextShadowService.getNodesByXPath(expression, range.startContainer);
-					for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
-					{
-						var box = null;
-						try {
-							box = boxes.snapshotItem(i);
-						}
-						catch(e) {
-						}
-						if (!box) continue;
-						if (!sel.containsNode(box, false)) {
-							break;
-						}
-						cleared = true;
-						TextShadowService.clearShadow(TextShadowService.getNodesByXPath('ancestor-or-self::*['+TextShadowService.TAG_BOX_CONDITION+']', box).snapshotItem(0));
-						sel = frame.getSelection();
-					}
-				}
-			}
-		}
-		var retVal = window.__textshadow__goDoCommand.apply(window, arguments);
-		if (shouldRebuild && cleared) {
-			TextShadowService.updateShadowForFrame(frame, TextShadowService.UPDATE_REBUILD);
-		}
-		return retVal;
-	},
-  
 /* Initializing */ 
 	 
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
-
-		this.TAG_BOX_CONDITION         = 'local-name() = "'+this.TAG_BOX+'" or local-name() = "'+this.TAG_BOX.toUpperCase()+'"';
-		this.TAG_ORIGINAL_CONDITION    = 'local-name() = "'+this.TAG_ORIGINAL+'" or local-name() = "'+this.TAG_ORIGINAL.toUpperCase()+'"';
-		this.TAG_BASE_CONDITION        = 'local-name() = "'+this.TAG_BASE+'" or local-name() = "'+this.TAG_BASE.toUpperCase()+'"';
-		this.TAG_SHADOW_CONDITION      = 'local-name() = "'+this.TAG_SHADOW+'" or local-name() = "'+this.TAG_SHADOW.toUpperCase()+'"';
-		this.TAG_SHADOW_PART_CONDITION = 'local-name() = "'+this.TAG_SHADOW_PART+'" or local-name() = "'+this.TAG_SHADOW_PART.toUpperCase()+'"';
-
-//		window.__textshadow__goDoCommand = window.goDoCommand;
-//		window.goDoCommand = this.goDoCommand;
 
 		window.removeEventListener('load', this, false);
 

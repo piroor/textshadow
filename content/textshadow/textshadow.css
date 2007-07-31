@@ -1,0 +1,62 @@
+@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+@namespace html url("http://www.w3.org/1999/xhtml");
+*|*._moz-textshadow-box {
+	-moz-binding: url(chrome://textshadow/content/textshadow.xml#textshadow-box) !important;
+}
+*|*._moz-textshadow-box,
+*|*._moz-first-line-pseud,
+*|*._moz-first-letter-pseud {
+	background: transparent !important;
+	border: none !important;
+	bottom: auto !important;
+	caption-side: top !important;
+	clear: none !important;
+	clip: auto !important;
+	color: inherit !important;
+	counter-increment: none !important;
+	counter-reset: none !important;
+	cursor: inherit !important;
+	direction: inherit !important;
+	display: inline !important;
+	float: none !important;
+	font-family: inherit !important;
+	font-style: inherit !important;
+	font-size-adjust: inherit !important;
+	font-stretch: inherit !important;
+	font-variant: inherit !important;
+	font-weight: inherit !important;
+	height: auto !important;
+	left: auto !important;
+	letter-spacing: inherit !important;
+	line-height: inherit !important;
+	list-style: inherit !important;
+	margin: 0 !important;
+	max-height: none !important;
+	max-width: none !important;
+	min-height: 0 !important;
+	min-width: 0 !important;
+	orphans: 2 !important;
+	outline: none !important;
+	padding: 0 !important;
+	page: auto !important;
+	page-break-after: auto !important;
+	page-break-before: auto !important;
+	page-break-inside: auto !important;
+	position: static !important;
+	quotes: inherit !important;
+	right: auto !important;
+	table-layout: inherit !important;
+	text-align: inherit !important;
+	text-decoration: inherit !important;
+	text-indent: 0 !important;
+	text-transform: inherit !important;
+	top: auto !important;
+	unicode-bidi: inherit !important;
+	vertical-align: baseline !important;
+	visibility: inherit !important;
+	white-space: inherit !important;
+	widows: 2 !important;
+	width: auto !important;
+	word-spacing: inherit !important;
+	z-index: auto !important;
+}

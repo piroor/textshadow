@@ -1189,12 +1189,18 @@ var TextShadowService = {
 	{
 		var foundNodes = [];
 		var rules = aCSSRules;
+		var acceptMediaRegExp = /(^\s*$|all|screen|projection)/i;
 		for (var i = 0, maxi = rules.length; i < maxi; i++)
 		{
 			switch (rules[i].type)
 			{
+				case rules[i].IMPORT_RULE:
+					if (acceptMediaRegExp.test(rules[i].media.mediaText) &&
+						acceptMediaRegExp.test(rules[i].styleSheet.media.mediaText))
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].styleSheet.cssRules));
+					break;
 				case rules[i].MEDIA_RULE:
-					if (/(^\s*$|all|screen|projection)/i.test(rules[i].media.mediaText))
+					if (acceptMediaRegExp.test(rules[i].media.mediaText))
 						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
 					break;
 				case rules[i].STYLE_RULE:

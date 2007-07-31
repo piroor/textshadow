@@ -753,7 +753,7 @@ var TextShadowService = {
 
 		var self = this;
 		var cues = this.getJSValueFromAttribute(d.documentElement, this.ATTR_DRAW_CUE) || [];
-		d.documentElement.removeAttribute(this.ATTR_DRAW_CUE,);
+		d.documentElement.removeAttribute(this.ATTR_DRAW_CUE);
 		cues = cues.concat(boxes.map(function(aItem) {
 				var id = aItem.getAttribute('id');
 				if (!id) {
@@ -804,7 +804,7 @@ var TextShadowService = {
 		node.removeAttribute(aSelf.ATTR_DRAW_TIMER);
 
 		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_DRAW_CUE);
-		node.removeAttribute(aSelf.ATTR_DRAW_CUE,);
+		node.removeAttribute(aSelf.ATTR_DRAW_CUE);
 		if (!cues || !cues.length) {
 			return;
 		}
@@ -871,7 +871,7 @@ var TextShadowService = {
 		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
 
 		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
-		node.removeAttribute(aSelf.ATTR_INIT_CUE,);
+		node.removeAttribute(aSelf.ATTR_INIT_CUE);
 		if (!cues || !cues.length) {
 			return;
 		}

@@ -29,7 +29,6 @@ var TextShadowService = {
 	ATTR_DRAW_CUE         : '_moz-textshadow-cue',
 	ATTR_DRAW_TIMER       : '_moz-textshadow-draw-timer',
 	ATTR_STYLE            : '_moz-textshadow-style',
-	ATTR_SCANNED          : '_moz-textshadow-scanned',
 	ATTR_CACHE            : '_moz-textshadow',
 	 
 /* Utilities */ 
@@ -76,7 +75,7 @@ var TextShadowService = {
 		return nodes;
 	},
  
-	getElementsBySelector : function(aSelector, aTargetDocument) 
+	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
 //var startTime = (new Date()).getTime();
 		var nodes = [];
@@ -84,30 +83,43 @@ var TextShadowService = {
 
 		if (!aSelector) return nodes;
 
-		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument);
+		if (!aSpecificity) aSpecificity = {};
+		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument, aSpecificity);
 //dump('SELECTOR '+aSelector+'\n');
 //dump('      => '+expression+'\n');
 		if (!expression) return nodes;
 
-		result = this.getNodesByXPath(expression, aTargetDocument);
-		for (var i = 0, maxi = result.snapshotLength; i < maxi; i++)
+		for (var i = 0, maxi = expression.length; i < maxi; i++)
 		{
-			nodes[count++] = result.snapshotItem(i);
+			var result = this.getNodesByXPath(expression[i], aTargetDocument);
+			for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
+			{
+				var node = result.snapshotItem(j);
+				if (!('specificity' in node)) node.specificity = '0000';
+				if (parseInt(node.specificity) < parseInt(aSpecificity.specificities[i].value))
+					node.specificity = aSpecificity.specificities[i].value;
+				nodes[count++] = node;
+			}
 		}
 //var endTime = (new Date()).getTime();
 //dump('getElementsBySelector '+(endTime-startTime)+'\n');
 		return nodes;
 	},
 	
-	convertSelectorToXPath : function(aSelector, aTargetDocument, aInNotPseudClass) 
+	convertSelectorToXPath : function(aSelector, aTargetDocument, aSpecificity, aInNotPseudClass) 
 	{
+		var makeOneExpression = false;
+		if (!aSpecificity) {
+			makeOneExpression = true;
+			aSpecificity = {};
+		}
+
 		var self = this;
 		var foundElements = [aTargetDocument];
 
 		var tokens = aSelector
 					.replace(/\s+/g, ' ')
 					.replace(/\s*([>+])\s*/g, '$1');
-//dump(tokens+'\n');
 
 		tokens = tokens.split('');
 
@@ -132,10 +144,17 @@ var TextShadowService = {
 
 		var mode = 'element';
 
-		var steps            = [];
-		var stepsCount       = 0;
-		var expressions      = [];
-		var expressionsCount = 0;
+		var steps              = [];
+		var stepsCount         = 0;
+		var expressions        = [];
+		var expressionsCount   = 0;
+
+		var selector               = '';
+		aSpecificity.id            = 0;
+		aSpecificity.element       = 0;
+		aSpecificity.condition     = 0;
+		aSpecificity.specificities = [];
+		var specificityCount       = 0;
 
 		function evaluate(aExpression, aTargetElements)
 		{
@@ -277,6 +296,8 @@ var TextShadowService = {
 				buf.combinators == '~' ? 'following-sibling::*' :
 				'descendant::*';
 
+			aSpecificity.element++;
+
 			var con       = [];
 			var conCount  = 0;
 
@@ -287,12 +308,16 @@ var TextShadowService = {
 				con[conCount++] = nameCondition;
 			}
 
-			if (buf.id.length) con[conCount++] = '@id = "'+buf.id+'"';
+			if (buf.id.length) {
+				con[conCount++] = '@id = "'+buf.id+'"';
+				aSpecificity.id++;
+			}
 			if (buf.class.length) {
 				var classes = buf.class.split('.').map(function(aItem) {
 						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
 					});
 				con[conCount++] = classes.join(' and ');
+				aSpecificity.condition += classes.length;
 			}
 			if (buf.attributes.length) {
 				var attributes = buf.attributes;
@@ -312,9 +337,11 @@ var TextShadowService = {
 						operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
 							'@'+attrName;
 				}
+				aSpecificity.condition += attributes.length;
 			}
 
 			var pseudEvaluated = true;
+			aSpecificity.condition++;
 			if (buf.pseud.length) {
 				switch (buf.pseud)
 				{
@@ -362,7 +389,12 @@ var TextShadowService = {
 						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
 						if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
-							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, true)+')';
+							var spec = {};
+							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, spec, true)+')';
+							aSpecificity.id        += spec.id;
+							aSpecificity.element   += spec.element;
+							aSpecificity.condition += spec.condition;
+							aSpecificity.condition--;
 						}
 
 						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
@@ -380,75 +412,82 @@ var TextShadowService = {
 						}
 
 						else {
+							aSpecificity.condition--;
 							pseudEvaluated = false;
 						}
 						break;
 				}
-			}
-
-			// Pseud-class
-			if (!pseudEvaluated && buf.pseud.length) {
-				var found = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
-				switch (buf.pseud)
-				{
-					case 'visited':
-						if (self.silhouettePseud) {
-							var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-							found = getElementsByCondition(function(aElement) {
-								var uri = aElement.href || aElement.getAttribute('href');
-								var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
-								var isVisited = false;
-								if (isLink) {
-									try {
-										isVisited = history.isVisited(self.makeURIFromSpec(uri));
+				if (!pseudEvaluated) {
+					aSpecificity.condition++;
+					foundElements = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
+					switch (buf.pseud)
+					{
+						case 'visited':
+							if (self.silhouettePseud) {
+								var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+								foundElements = getElementsByCondition(function(aElement) {
+									var uri = aElement.href || aElement.getAttribute('href');
+									var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+									var isVisited = false;
+									if (isLink) {
+										try {
+											isVisited = history.isVisited(self.makeURIFromSpec(uri));
+										}
+										catch(e) {
+											dump(uri+' / '+self.makeURIFromSpec(uri));
+											dump(e+'\n');
+										}
+										if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
 									}
-									catch(e) {
-										dump(uri+' / '+self.makeURIFromSpec(uri));
-										dump(e+'\n');
-									}
-									if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
-								}
-								return isLink && isVisited ? 1 : -1 ;
-							}, found);
-							con[conCount++] = '@_moz-pseud-class-visited = "true"';
-							break;
-						}
+									return isLink && isVisited ? 1 : -1 ;
+								}, foundElements);
+								con[conCount++] = '@_moz-pseud-class-visited = "true"';
+								break;
+							}
 
-					case 'target':
-						if (self.silhouettePseud) {
-							found = getElementsByCondition(function(aElement) {
-								(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-								var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-								if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
-								return isTarget ? 1 : -1 ;
-							}, found);
-							con[conCount++] = '@_moz-pseud-class-target = "true"';
-							break;
-						}
+						case 'target':
+							if (self.silhouettePseud) {
+								foundElements = getElementsByCondition(function(aElement) {
+									(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+									var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+									if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+									return isTarget ? 1 : -1 ;
+								}, foundElements);
+								con[conCount++] = '@_moz-pseud-class-target = "true"';
+								break;
+							}
 
-					case 'first-letter':
-						if (self.silhouettePseud) {
-							found = getFirstLetters(found);
-							steps[stepsCount++] = makeLocationStep(step, con);
-							steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
-							break;
-						}
+						case 'first-letter':
+							if (self.silhouettePseud) {
+								foundElements = getFirstLetters(foundElements);
+								steps[stepsCount++] = makeLocationStep(step, con);
+								steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
+								step = null;
+								break;
+							}
 
-					case 'first-line':
-						if (self.silhouettePseud) {
-							found = getFirstLines(found);
-							steps[stepsCount++] = makeLocationStep(step, con);
-							steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
-							break;
-						}
+						case 'first-line':
+							if (self.silhouettePseud) {
+								foundElements = getFirstLines(foundElements);
+								steps[stepsCount++] = makeLocationStep(step, con);
+								steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
+								step = null;
+								break;
+							}
 
-					default:
-						steps      = [];
-						stepsCount = 0;
-						found      = [];
-						break;
+						default:
+							aSpecificity.id        = 0;
+							aSpecificity.element   = 0;
+							aSpecificity.condition = 0;
+							step       = '';
+							con        = [];
+							conCount   = 0;
+							steps      = [];
+							stepsCount = 0;
+							foundElements = [aTargetDocument];
+							break;
+					}
 				}
-				foundElements = found;
 			}
 
 			if (step) steps[stepsCount++] = makeLocationStep(step, con);
@@ -472,20 +511,33 @@ var TextShadowService = {
 						}
 					}
 				}
-				if (stepsCount)
+				if (stepsCount) {
+					selector;
 					expressions[expressionsCount++] = (aInNotPseudClass ? '' : '/' ) + steps.join('/');
+					aSpecificity.specificities[specificityCount++] = {
+						selector : selector,
+						value    : parseInt([
+							0,
+							aSpecificity.id,
+							aSpecificity.condition,
+							aSpecificity.element
+						].join('') || '0000')
+					};
+				}
 
 				steps      = [];
 				stepsCount = 0;
+				selector   = '';
 			}
 		};
 
 
-		var escaped = false;
+		var escaped    = false;
 		var parenLevel = 0;
 		for ( var i = 0, len = tokens.length; i < len; i++  )
 		{
 			var token = tokens[i];
+			selector += token;
 			if (escaped) {
 				buf[mode] += token;
 				escaped = false;
@@ -522,6 +574,9 @@ var TextShadowService = {
 					break;
 
 				case ':':
+					if (mode == 'class') {
+						buf[mode] += token;
+					}
 					mode = 'pseud';
 					break;
 				case '(':
@@ -580,6 +635,7 @@ var TextShadowService = {
 						buf[mode] += token;
 					}
 					else {
+						selector = selector.replace(/,$/, '');
 						search(true);
 						buf.combinators = ' ';
 						foundElements = [aTargetDocument]
@@ -594,19 +650,20 @@ var TextShadowService = {
 
 			}
 			if (!foundElements.length) {
-				return '';
+				return makeOneExpression ? expressions.join(' | ') : expressions ;
 			}
 		}
 		search(true);
 
-		return expressionsCount ? expressions.join(' | ') : '' ;
+		return makeOneExpression ? expressions.join(' | ') : expressions ;
 	},
   
 	getJSValueFromAttribute : function(aElement, aAttribute) 
 	{
+		var value;
 		try {
 			var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
-			var value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
+			value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
 		}
 		catch(e) {
 		}
@@ -903,16 +960,16 @@ var TextShadowService = {
 		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 		{
 			var node = nodes.snapshotItem(i);
-			if (
-				node.hasAttribute(this.ATTR_SCANNED) ||
-				!node.style.textShadow
-				)
+			if (!node.style.textShadow)
 				continue;
-
-			node.setAttribute(this.ATTR_SCANNED, true);
 
 			var value = this.parseTextShadowValue(node.style.textShadow);
 			if (!value.length) continue;
+			value.specificity = node.style.getPropertyPriority('text-shadow') == 'important' ? 11000 : 1000 ;
+
+			var oldVal = this.getJSValueFromAttribute(nodes[i], this.ATTR_STYLE);
+			if (oldVal && oldVal.specificity > value.specificity) continue;
+
 			node.setAttribute(this.ATTR_STYLE, value.toSource());
 			foundNodes.push(node);
 		}
@@ -1012,20 +1069,27 @@ var TextShadowService = {
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var foundNodes = [];
-		var value = this.parseTextShadowValue(aCSSRule.style.textShadow);
+		var value     = this.parseTextShadowValue(aCSSRule.style.textShadow);
 		if (!value.length) return foundNodes;
+		value.important = aCSSRule.style.getPropertyPriority('text-shadow') == 'important';
 
-		var nodes = this.getElementsBySelector(aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''), aFrame.document);
+		var nodes = this.getElementsBySelector(aFrame.document, aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''));
+
 		for (var i = 0, maxi = nodes.length; i < maxi; i++)
 		{
 			if (
 				!nodes[i].textContent ||
-				/^\s*$/.test(nodes[i].textContent) ||
-				nodes[i].hasAttribute(this.ATTR_SCANNED)
+				/^\s*$/.test(nodes[i].textContent)
 				)
 				continue;
 
-			nodes[i].setAttribute(this.ATTR_SCANNED, true);
+			if (value.important) nodes[i].specificity = '1' + nodes[i].specificity;
+			nodes[i].specificity = parseInt(nodes[i].specificity);
+
+			var oldVal = this.getJSValueFromAttribute(nodes[i], this.ATTR_STYLE);
+			if (oldVal && oldVal.specificity > nodes[i].specificity) continue;
+
+			value.specificity = nodes[i].specificity;
 			nodes[i].setAttribute(this.ATTR_STYLE, value.toSource());
 			foundNodes.push(nodes[i]);
 		}

@@ -620,6 +620,7 @@ var TextShadowService = {
 		var w = aTargetNode.ownerDocument.defaultView;
 		var fontSize = this.getComputedPixels(aTargetNode, 'font-size');
 		var unit = aCSSLength.match(/em|ex|px|\%|mm|cm|in|pt|pc/i);
+		var dpi = 72; // ‰æ–Ê‰ð‘œ“x‚Í72dpi‚Æ‚Ý‚È‚·
 		if (unit) {
 			aCSSLength = Number(aCSSLength.match(/^[-0-9\.]+/));
 			switch (String(unit).toLowerCase())
@@ -636,11 +637,22 @@ var TextShadowService = {
 				case 'ex':
 					return aCSSLength * fontSize * 0.5;
 
-				case 'mm':
-				case 'cm':
 				case 'in':
+					return aCSSLength * dpi:
+					break;
+
 				case 'pt':
+					return aCSSLength;
+					break;
 				case 'pc':
+					return aCSSLength * 12;
+					break;
+
+				case 'mm':
+					return aCSSLength * dpi * 0.03937:
+					break;
+				case 'cm':
+					return aCSSLength * dpi * 0.3937:
 					break;
 			}
 		}

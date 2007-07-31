@@ -1267,11 +1267,11 @@ var TextShadowService = {
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
-var startTime = (new Date()).getTime();
+//var startTime = (new Date()).getTime();
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
-var endTime = (new Date()).getTime();
-dump('updateShadow '+(endTime - startTime)+'\n');
+//var endTime = (new Date()).getTime();
+//dump('updateShadow '+(endTime - startTime)+'\n');
 	},
  
 	updateAllShadows : function(aTabBrowser, aReason) 

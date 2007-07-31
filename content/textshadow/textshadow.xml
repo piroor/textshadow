@@ -91,6 +91,9 @@
 			if (parentBox == this.parentNode && !hasPreviousNode)
 				this.xOffset -= info.indent;
 
+			if (window.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
+				this.yOffset += this.getComputedPixels('margin-top', parentBox);
+
 			this.indent = info.indent;
 			this.width = Math.min(info.width, info.boxWidth);
 			this.boxWidth = info.boxWidth;

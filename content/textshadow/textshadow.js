@@ -2,104 +2,35 @@ var TextShadowService = {
 	ID       : 'textshadow@piro.sakura.ne.jp',
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
-	shadowEnabled     : false,
-	positionQuality   : 1,
-	renderingUnitSize : 1,
-	silhouettePseudElementsAndClasses : true,
+	shadowEnabled         : false,
+	positionQuality       : 1,
+	renderingUnitSize     : 1,
+	silhouettePseud       : true,
 
-	UPDATE_INIT     : 0,
-	UPDATE_PAGELOAD : 1,
-	UPDATE_RESIZE   : 2,
-	UPDATE_REBUILD  : 3,
+	UPDATE_INIT           : 0,
+	UPDATE_PAGELOAD       : 1,
+	UPDATE_RESIZE         : 2,
+	UPDATE_REBUILD        : 3,
 
-	ID_PREFIX       : '_moz-textshadow-target-',
+	ID_PREFIX             : '_moz-textshadow-target-',
 
-	BOX           : 'span',
-	BOX_CLASS     : '_moz-textshadow-box',
-	BOX_CONDITION : '@class = "_moz-textshadow-box"',
+	SHADOW                : 'span',
+	SHADOW_CLASS          : '_moz-textshadow-box',
+	SHADOW_CONDITION      : '@class = "_moz-textshadow-box"',
 
 	FIRSTLETTER           : 'span',
 	FIRSTLETTER_CLASS     : '_moz-first-letter-pseud',
 	FIRSTLETTER_CONDITION : '@class = "_moz-first-letter-pseud"',
 
-	FIRSTLINE           : 'span',
-	FIRSTLINE_CLASS     : '_moz-first-line-pseud',
-	FIRSTLINE_CONDITION : '@class = "_moz-first-line-pseud"',
+	FIRSTLINE             : 'span',
+	FIRSTLINE_CLASS       : '_moz-first-line-pseud',
+	FIRSTLINE_CONDITION   : '@class = "_moz-first-line-pseud"',
 
-	ATTR_DRAW_CUE   : '_moz-textshadow-cue',
-	ATTR_DRAW_TIMER : '_moz-textshadow-draw-timer',
-	ATTR_STYLE      : '_moz-textshadow-style',
-	ATTR_SCANNED    : '_moz-textshadow-scanned',
-	ATTR_CACHE      : '_moz-textshadow',
-
-	STYLESHEET : String(<![CDATA[
-		@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
-		@namespace html url("http://www.w3.org/1999/xhtml");
-		*|*._moz-textshadow-box {
-			-moz-binding: url(chrome://textshadow/content/textshadow.xml#textshadow-box) !important;
-		}
-		*|*._moz-textshadow-box,
-		*|*._moz-first-line-pseud,
-		*|*._moz-first-letter-pseud {
-			background: transparent !important;
-			border: none !important;
-			bottom: auto !important;
-			caption-side: top !important;
-			clear: none !important;
-			clip: auto !important;
-			color: black !important;
-		/* Mozilla don't know these properties.
-			counter-increment: none !important;
-			counter-reset: none !important;
-		*/
-			cursor: inherit !important;
-			direction: inherit !important;
-			display: table-cell !important;
-			empty-cells: show !important;
-			float: none !important;
-			font-family: inherit !important;
-			font-style: normal !important;
-			font-size-adjust: none !important;
-			font-stretch: normal !important;
-			font-variant: normal !important;
-			font-weight: normal !important;
-			height: auto !important;
-			left: auto !important;
-			letter-spacing: inherit !important;
-			line-height: 90% !important;
-			list-style: none !important;
-			margin: 0 !important;
-			max-height: none !important;
-			max-width: none !important;
-			min-height: 0 !important;
-			min-width: 0 !important;
-			orphans: 2 !important;
-			outline: none !important;
-			padding: 0 !important;
-			page: auto !important;
-			page-break-after: auto !important;
-			page-break-before: auto !important;
-			page-break-inside: auto !important;
-			position: static !important;
-			quotes: none !important;
-			right: auto !important;
-			table-layout: auto !important;
-			text-align: center !important;
-			text-decoration: none !important;
-			text-indent: 0 !important;
-			text-shadow: none !important;
-			text-transform: none !important;
-			top: auto !important;
-			unicode-bidi: inherit !important;
-			vertical-align: baseline !important;
-			visibility: inherit !important;
-			white-space: inherit !important;
-			widows: 2 !important;
-			width: auto !important;
-			word-spacing: normal !important;
-			z-index: auto !important;
-		}
-	]]>),
+	ATTR_DRAW_CUE         : '_moz-textshadow-cue',
+	ATTR_DRAW_TIMER       : '_moz-textshadow-draw-timer',
+	ATTR_STYLE            : '_moz-textshadow-style',
+	ATTR_SCANNED          : '_moz-textshadow-scanned',
+	ATTR_CACHE            : '_moz-textshadow',
 	 
 /* Utilities */ 
 	 
@@ -154,6 +85,8 @@ var TextShadowService = {
 		if (!aSelector) return nodes;
 
 		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument);
+//dump('SELECTOR '+aSelector+'\n');
+//dump('      => '+expression+'\n');
 		if (!expression) return nodes;
 
 		result = this.getNodesByXPath(expression, aTargetDocument);
@@ -218,6 +151,18 @@ var TextShadowService = {
 				}
 			}
 			return found;
+		}
+
+		function makeLocationStep(aStep, aConditions)
+		{
+			var step = aStep;
+			if (aConditions.length > 1) {
+				step += '[('+aConditions.join(') and (')+')]';
+			}
+			else if (aConditions.length == 1) {
+				step += '['+aConditions[0]+']';
+			}
+			return step;
 		}
 
 		function getElementsByCondition( callback, targetElements )
@@ -326,28 +271,28 @@ var TextShadowService = {
 
 		function search(aEndOfPath)
 		{
-			var step = [];
-			var stepCount = 0;
-
-			step[stepCount++] =
+			var step =
 				buf.combinators == '>' ? '*' :
 				buf.combinators == '+' ? 'following-sibling::*[1]' :
 				buf.combinators == '~' ? 'following-sibling::*' :
 				'descendant::*';
 
+			var con       = [];
+			var conCount  = 0;
+
 			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
 			var nameCondition = '';
 			if (tagName != '*') {
-				nameCondition = '[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
-				step[stepCount++] = nameCondition;
+				nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
+				con[conCount++] = nameCondition;
 			}
 
-			if (buf.id.length) step[stepCount++] = '[@id = "'+buf.id+'"]';
+			if (buf.id.length) con[conCount++] = '@id = "'+buf.id+'"';
 			if (buf.class.length) {
 				var classes = buf.class.split('.').map(function(aItem) {
 						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
 					});
-				step[stepCount++] = '['+classes.join(' and ')+']';
+				con[conCount++] = classes.join(' and ');
 			}
 			if (buf.attributes.length) {
 				var attributes = buf.attributes;
@@ -358,15 +303,14 @@ var TextShadowService = {
 					var attrName  = RegExp.$1;
 					var operator  = RegExp.$2;
 					var attrValue = RegExp.$3;
-					step[stepCount++] = '['+(
+					con[conCount++] =
 						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
 						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
 						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
 						operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
 						operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
 						operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
-							'@'+attrName
-					)+']';
+							'@'+attrName;
 				}
 			}
 
@@ -375,63 +319,64 @@ var TextShadowService = {
 				switch (buf.pseud)
 				{
 					case 'first-child':
-						step[stepCount++] = '[not(preceding-sibling::*)]';
+						con[conCount++] = 'not(preceding-sibling::*)';
 						break;
 					case 'last-child':
-						step[stepCount++] = '[not(following-sibling::*)]';
+						con[conCount++] = 'not(following-sibling::*)';
 						break;
 					case 'first-of-type':
-						step[stepCount++] = '[not(preceding-sibling::*'+nameCondition+')]';
+						con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
 					case 'last-of-type':
-						step[stepCount++] = '[not(following-sibling::*'+nameCondition+')]';
+						con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
 						break;
 					case 'only-child':
-						step[stepCount++] = '[count(parent::*/child::*) = 1]';
+						con[conCount++] = 'count(parent::*/child::*) = 1';
 						break;
 					case 'only-of-type':
-						step[stepCount++] = '[count(parent::*/child::*'+nameCondition+') = 1]';
+						con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
 						break;
 					case 'empty':
-						step[stepCount++] = '[not(node())]';
+						con[conCount++] = 'not(node())';
 						break;
 					case 'link':
-						step[stepCount++] = '[@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))]';
+						con[conCount++] = '@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))';
 						break;
 					case 'enabled':
-						step[stepCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
+						con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))';
 						break;
 					case 'disabled':
-						step[stepCount++] = '[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]';
+						con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))';
 						break;
 					case 'checked':
-						step[stepCount++] = '[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]';
+						con[conCount++] = '(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))';
 						break;
 					case 'indeterminate':
-						step[stepCount++] = '[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]';
+						con[conCount++] = '(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))';
 						break;
 					case 'root':
-						step[stepCount++] = '[not(ancestor::*)]';
+						step = step.replace(/^descendant::/, 'descendant-or-self::');
+						con[conCount++] = 'not(ancestor::*)';
 						break;
 					default:
 						var axis = /^nth-last-/.test(buf.pseud) ? 'following-sibling' : 'preceding-sibling' ;
 						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
 						if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
-							step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, true)+')]';
+							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, true)+')';
 						}
 
 						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-							step[stepCount++] = '[count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1)+']';
+							con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
 						}
 						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							step[stepCount++] = '[(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1]';
+							con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
 						}
 						else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(buf.pseud)) {
-							step[stepCount++] = '[count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' )+']';
+							con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
 						}
 
 						else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
-							step[stepCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
+							con[conCount++] = 'contains(descendant::text(), "'+RegExp.$1+'")';
 						}
 
 						else {
@@ -443,11 +388,11 @@ var TextShadowService = {
 
 			// Pseud-class
 			if (!pseudEvaluated && buf.pseud.length) {
-				var found = evaluate(steps.join('/')+'/'+step.join(''), foundElements);
+				var found = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
 				switch (buf.pseud)
 				{
 					case 'visited':
-						if (self.silhouettePseudElementsAndClasses) {
+						if (self.silhouettePseud) {
 							var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
 							found = getElementsByCondition(function(aElement) {
 								var uri = aElement.href || aElement.getAttribute('href');
@@ -465,40 +410,34 @@ var TextShadowService = {
 								}
 								return isLink && isVisited ? 1 : -1 ;
 							}, found);
-							step[stepCount++] = '[@_moz-pseud-class-visited = "true"]';
+							con[conCount++] = '@_moz-pseud-class-visited = "true"';
 							break;
 						}
 
 					case 'target':
-						if (self.silhouettePseudElementsAndClasses) {
+						if (self.silhouettePseud) {
 							found = getElementsByCondition(function(aElement) {
 								(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
 								var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
 								if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
 								return isTarget ? 1 : -1 ;
 							}, found);
-							step[stepCount++] = '[@_moz-pseud-class-target = "true"]';
+							con[conCount++] = '@_moz-pseud-class-target = "true"';
 							break;
 						}
 
 					case 'first-letter':
-						if (self.silhouettePseudElementsAndClasses) {
+						if (self.silhouettePseud) {
 							found = getFirstLetters(found);
-							if (stepCount) {
-								steps[stepsCount++] = step.join('');
-								stepCount = 0;
-							}
+							steps[stepsCount++] = makeLocationStep(step, con);
 							steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
 							break;
 						}
 
 					case 'first-line':
-						if (self.silhouettePseudElementsAndClasses) {
+						if (self.silhouettePseud) {
 							found = getFirstLines(found);
-							if (stepCount) {
-								steps[stepsCount++] = step.join('');
-								stepCount = 0;
-							}
+							steps[stepsCount++] = makeLocationStep(step, con);
 							steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
 							break;
 						}
@@ -506,15 +445,13 @@ var TextShadowService = {
 					default:
 						steps      = [];
 						stepsCount = 0;
-						step       = [];
-						stepCount  = 0;
 						found      = [];
 						break;
 				}
 				foundElements = found;
 			}
 
-			if (stepCount) steps[stepsCount++] = step.join('');
+			if (step) steps[stepsCount++] = makeLocationStep(step, con);
 			buf.clear();
 
 			if (aEndOfPath) {
@@ -683,7 +620,7 @@ var TextShadowService = {
 		var d = aElement.ownerDocument;
 		var boxes = [];
 
-		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.BOX_CONDITION+']', aElement);
+		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aElement);
 		if (shadowBoxes.snapshotLength) {
 			for (var i = 0, maxi = shadowBoxes.snapshotLength; i < maxi; i++)
 			{
@@ -691,9 +628,9 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.BOX_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
-			var wrapper = d.createElement(this.BOX);
-			wrapper.setAttribute('class', this.BOX_CLASS);
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
+			var wrapper = d.createElement(this.SHADOW);
+			wrapper.setAttribute('class', this.SHADOW_CLASS);
 			for (var i = 0, maxi = textNodes.snapshotLength; i < maxi; i++)
 			{
 				var node = textNodes.snapshotItem(i);
@@ -730,11 +667,13 @@ var TextShadowService = {
 	 
 	clearShadow : function(aElement) 
 	{
-		var boxes = this.getNodesByXPath('descendant::*['+this.BOX_CONDITION+']', aElement);
-		var parent;
+		var boxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aElement);
 		for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
 		{
-			boxes.snapshotItem(i).wrappedJSObject.clear();
+			var node = boxes.snapshotItem(i);
+			if (node.wrappedJSObject &&
+				node.wrappedJSObject.clear)
+				node.wrappedJSObject.clear();
 		}
 	},
   
@@ -1309,7 +1248,7 @@ var TextShadowService = {
 				break;
 
 			case 'extensions.textshadow.silhouettePseudElementsAndClasses':
-				this.silhouettePseudElementsAndClasses = value;
+				this.silhouettePseud = value;
 				break;
 
 			default:

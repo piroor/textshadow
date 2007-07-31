@@ -323,21 +323,21 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 					step[stepCount++] = '[not(following-sibling::*)]';
 					break;
 				case 'first-of-type':
-					step[stepCount++] = '[1]';
+					step[stepCount++] = '[not(preceding-sibling::*'+nameCondition+')]';
 				case 'last-of-type':
-					step[stepCount++] = '[last()]';
+					step[stepCount++] = '[not(following-sibling::*'+nameCondition+')]';
 					break;
 				case 'only-child':
-					step[stepCount++] = '[not(preceding-sibling::*) and not(following-sibling::*)]';
+					step[stepCount++] = '[count(parent::*/child::*) = 1]';
 					break;
 				case 'only-of-type':
-					step[stepCount++] = '[not(preceding-sibling::*'+nameCondition+') and not(following-sibling::*'+nameCondition+')]';
+					step[stepCount++] = '[count(parent::*/child::*'+nameCondition+') = 1]';
 					break;
 				case 'empty':
 					step[stepCount++] = '[not(node())]';
 					break;
 				case 'link':
-					step[stepCount++] = '[contains(" link LINK a A area AREA ", concat(" ", local-name(), " ")]';
+					step[stepCount++] = '[@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))]';
 					break;
 				case 'enabled':
 					step[stepCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
@@ -355,36 +355,21 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 					step[stepCount++] = '[not(ancestor::*)]';
 					break;
 				default:
-					var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
+						var axis = /^nth-last-/.test(buf.pseud) ? 'following-sibling' : 'preceding-sibling' ;
+						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
 
 					if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
 						step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, true)+')]';
 					}
 
-					else if (/nth-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(preceding-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
+					else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
+						step[stepCount++] = '[count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1)+']';
 					}
-					else if (/nth-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-						step[stepCount++] = '[(count(preceding-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
+					else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(buf.pseud)) {
+						step[stepCount++] = '[(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1]';
 					}
-					else if (/nth-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 0]';
-					}
-					else if (/nth-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(preceding-sibling::*'+condition+') mod 2 = 1]';
-					}
-
-					else if (/nth-last-(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(following-sibling::*'+condition+') = '+(parseInt(RegExp.$2)-1)+']';
-					}
-					else if (/nth-last-(child|of-type)\(\s*([0-9]+)n\s*(\+([0-9]+)\s*)?\)/.test(buf.pseud)) {
-						step[stepCount++] = '[(count(following-sibling::*'+condition+')'+(RegExp.$4 ? ' + '+RegExp.$4 : '' )+') mod '+RegExp.$2+' = 1]';
-					}
-					else if (/nth-last-(child|of-type)\(\s*odd\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(following-sibling::*'+condition+') mod 2 = 0]';
-					}
-					else if (/nth-last-(child|of-type)\(\s*even\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count(following-sibling::*'+condition+') mod 2 = 1]';
+					else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(buf.pseud)) {
+						step[stepCount++] = '[count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' )+']';
 					}
 
 					else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {

@@ -5,7 +5,8 @@ p.test1:first-line {
 p.test2:first-letter,
 li[testAttr="hoge"],
 li[testAttr~="bar"],
-li[lang|="en"] {
+li[lang|="en"],
+li:first-child > :link {
 	text-shadow: 2px 2px red;
 }
 p:last-child,
@@ -14,6 +15,8 @@ p:last-child,
 ul.test li+li {
 	text-shadow: 2px 2px 2px blue;
 }
+
+
 
 :visited {
 	text-shadow: 0px 0px 2px purple;
@@ -42,6 +45,10 @@ ul.test li+li {
 <p class="test1">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
 
 <p class="test2">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+<p>段落<em>強調</em>段落<em>強調</em>段落</p>
+
+<p>段落<em>強調</em>段落</p>
 
 <p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
 

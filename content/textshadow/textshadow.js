@@ -745,21 +745,37 @@ var TextShadowService = {
 			}
 		}
 
+		var sandbox = Components.utils.Sandbox(d.defaultView.location.href);
+		sandbox.x      = aX;
+		sandbox.y      = aY;
+		sandbox.radius = aRadius;
+		sandbox.color  = aColor;
+		sandbox.positionQuality = this.positionQuality;
 		for (var i in boxes)
 		{
-			boxes[i].wrappedJSObject.drawShadow(aX, aY, aRadius, aColor, this.positionQuality);
+			sandbox.node   = boxes[i].wrappedJSObject;
+			try {
+				Components.utils.evalInSandbox('node.drawShadow(x, y, radius, color, positionQuality);', sandbox);
+			}
+			catch(e) {
+			}
 		}
 	},
 	 
 	clearShadow : function(aElement) 
 	{
 		var boxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aElement);
+		if (!boxes.snapshotLength) return;
+
+		var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
 		for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
 		{
-			var node = boxes.snapshotItem(i);
-			if (node.wrappedJSObject &&
-				node.wrappedJSObject.clear)
-				node.wrappedJSObject.clear();
+			sandbox.node = boxes.snapshotItem(i).wrappedJSObject;
+			try {
+				Components.utils.evalInSandbox('if (node.clear) node.clear();', sandbox);
+			}
+			catch(e) {
+			}
 		}
 	},
   

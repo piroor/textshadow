@@ -143,8 +143,10 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 	var mode = 'element';
 
-	var steps = [];
-	var stepsCount = 0;
+	var steps            = [];
+	var stepsCount       = 0;
+	var expressions      = [];
+	var expressionsCount = 0;
 
 	function evaluate(aExpression, aTargetElements)
 	{
@@ -266,7 +268,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 		return elements;
 	}
 
-	function search()
+	function search(aEndOfPath)
 	{
 		var step = [];
 		var stepCount = 0;
@@ -466,6 +468,31 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 		if (stepCount) steps[stepsCount++] = step.join('');
 		buf.clear();
+
+		if (aEndOfPath) {
+			if (stepsCount && aInNotPseudClass) {
+				steps.reverse();
+				var isFirst = true;
+				for (var i = 0, maxi = steps.length; i < maxi; i++)
+				{
+					if (isFirst) {
+						steps[i] = steps[i]
+									.replace(/^[^:\*]*(::)?/, 'self::');
+						isFirst = false;
+					}
+					else {
+						steps[i] = steps[i]
+									.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
+									.replace(/^descendant/, 'ancestor');
+					}
+				}
+			}
+			if (stepsCount)
+				expressions[expressionsCount++] = (aInNotPseudClass ? '' : '/' ) + steps.join('/');
+
+			steps      = [];
+			stepsCount = 0;
+		}
 	};
 
 
@@ -563,6 +590,18 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				}
 				break;
 
+			case ',':
+				if (mode == 'attribute' || parenLevel) {
+					buf[mode] += token;
+				}
+				else {
+					search(true);
+					buf.combinators = ' ';
+					foundElements = [aTargetDocument]
+					mode = 'element';
+				}
+				break;
+
 			// default
 			default :
 				buf[mode] += token;
@@ -573,26 +612,9 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 			return '';
 		}
 	}
-	search();
-	if (stepsCount && aInNotPseudClass) {
-		steps.reverse();
-		var isFirst = true;
-		for (var i = 0, maxi = steps.length; i < maxi; i++)
-		{
-			if (isFirst) {
-				steps[i] = steps[i]
-							.replace(/^[^:\*]*(::)?/, 'self::');
-				isFirst = false;
-			}
-			else {
-				steps[i] = steps[i]
-							.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
-							.replace(/^descendant/, 'ancestor');
-			}
-		}
-	}
+	search(true);
 
-	return stepsCount  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
+	return expressionsCount ? expressions.join(' | ') : '' ;
 };
 
 document.getNodesByXPath = function(aExpression, aContext, aLive) 

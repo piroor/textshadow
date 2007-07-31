@@ -149,8 +149,10 @@ var TextShadowService = {
 
 		var mode = 'element';
 
-		var steps = [];
-		var stepsCount = 0;
+		var steps            = [];
+		var stepsCount       = 0;
+		var expressions      = [];
+		var expressionsCount = 0;
 
 		function evaluate(aExpression, aTargetElements)
 		{
@@ -269,7 +271,7 @@ var TextShadowService = {
 			return elements;
 		}
 
-		function search()
+		function search(aEndOfPath)
 		{
 			var step = [];
 			var stepCount = 0;
@@ -461,6 +463,31 @@ var TextShadowService = {
 
 			if (stepCount) steps[stepsCount++] = step.join('');
 			buf.clear();
+
+			if (aEndOfPath) {
+				if (stepsCount && aInNotPseudClass) {
+					steps.reverse();
+					var isFirst = true;
+					for (var i = 0, maxi = steps.length; i < maxi; i++)
+					{
+						if (isFirst) {
+							steps[i] = steps[i]
+										.replace(/^[^:\*]*(::)?/, 'self::');
+							isFirst = false;
+						}
+						else {
+							steps[i] = steps[i]
+										.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
+										.replace(/^descendant/, 'ancestor');
+						}
+					}
+				}
+				if (stepsCount)
+					expressions[expressionsCount++] = (aInNotPseudClass ? '' : '/' ) + steps.join('/');
+
+				steps      = [];
+				stepsCount = 0;
+			}
 		};
 
 
@@ -558,6 +585,18 @@ var TextShadowService = {
 					}
 					break;
 
+				case ',':
+					if (mode == 'attribute' || parenLevel) {
+						buf[mode] += token;
+					}
+					else {
+						search(true);
+						buf.combinators = ' ';
+						foundElements = [aTargetDocument]
+						mode = 'element';
+					}
+					break;
+
 				// default
 				default :
 					buf[mode] += token;
@@ -568,26 +607,9 @@ var TextShadowService = {
 				return '';
 			}
 		}
-		search();
-		if (stepsCount && aInNotPseudClass) {
-			steps.reverse();
-			var isFirst = true;
-			for (var i = 0, maxi = steps.length; i < maxi; i++)
-			{
-				if (isFirst) {
-					steps[i] = steps[i]
-								.replace(/^[^:\*]*(::)?/, 'self::');
-					isFirst = false;
-				}
-				else {
-					steps[i] = steps[i]
-								.replace(/^([^:\*]*(::?)|child::)/, 'parent::')
-								.replace(/^descendant/, 'ancestor');
-				}
-			}
-		}
+		search(true);
 
-		return stepsCount  ? (aInNotPseudClass ? '' : '/' ) + steps.join('/') : '' ;
+		return expressionsCount ? expressions.join(' | ') : '' ;
 	},
   
 	convertToPixels : function(aCSSLength, aTargetNode, aParentWidth) 
@@ -1101,24 +1123,17 @@ var TextShadowService = {
 		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 		{
 			var node = nodes.snapshotItem(i);
-			var decs = node.getAttribute('style').match(/\btext-shadow\s*:[^;]*/gi);
 			if (
 				node.hasAttribute(this.ATTR_SCANNED) ||
-				!decs ||
-				!decs.length
+				!node.style.textShadow
 				)
 				continue;
 
-			var x, y, radius, color;
-			for (var j = 0, maxj = decs.length; j < maxj; j++)
-			{
-				var value = this.parseTextShadowValue(String(decs[j]).replace(/text-shadow\s*:\s*/i, ''));
-				if (!value.length) continue;
-				node.setAttribute(this.ATTR_STYLE, value.toSource());
-			}
-			if (!node.hasAttribute(this.ATTR_STYLE)) continue;
-
 			node.setAttribute(this.ATTR_SCANNED, true);
+
+			var value = this.parseTextShadowValue(node.style.textShadow);
+			if (!value.length) continue;
+			node.setAttribute(this.ATTR_STYLE, value.toSource());
 			foundNodes.push(node);
 		}
 		return foundNodes;
@@ -1204,7 +1219,7 @@ var TextShadowService = {
 						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
 					break;
 				case rules[i].STYLE_RULE:
-					if (/\btext-shadow\s*:/.test(rules[i].cssText))
+					if (rules[i].style.textShadow)
 						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i]));
 					break;
 				default:
@@ -1217,34 +1232,24 @@ var TextShadowService = {
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var foundNodes = [];
-		var selectors = aCSSRule.selectorText.split(',');
-		var props = aCSSRule.style;
-		var value;
-		for (var i = 0, maxi = props.length; i < maxi; i++)
-		{
-			if (props[i].toLowerCase() != 'text-shadow') continue;
-
-			value = this.parseTextShadowValue(props.getPropertyValue('text-shadow'));
-		}
+		var value = this.parseTextShadowValue(aCSSRule.style.textShadow);
 		if (!value.length) return foundNodes;
 
-		for (var i = 0, maxi = selectors.length; i < maxi; i++)
+		var nodes = this.getElementsBySelector(aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''), aFrame.document);
+		for (var i = 0, maxi = nodes.length; i < maxi; i++)
 		{
-			var nodes = this.getElementsBySelector(selectors[i].replace(/^\s+|\s+$/g, ''), aFrame.document);
-			for (var j = 0, maxj = nodes.length; j < maxj; j++)
-			{
-				if (
-					!nodes[j].textContent ||
-					/^\s*$/.test(nodes[j].textContent) ||
-					nodes[j].hasAttribute(this.ATTR_SCANNED)
-					)
-					continue;
+			if (
+				!nodes[i].textContent ||
+				/^\s*$/.test(nodes[i].textContent) ||
+				nodes[i].hasAttribute(this.ATTR_SCANNED)
+				)
+				continue;
 
-				nodes[j].setAttribute(this.ATTR_SCANNED, true);
-				nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
-				foundNodes.push(nodes[j]);
-			}
+			nodes[i].setAttribute(this.ATTR_SCANNED, true);
+			nodes[i].setAttribute(this.ATTR_STYLE, value.toSource());
+			foundNodes.push(nodes[i]);
 		}
+
 		return foundNodes;
 	},
    

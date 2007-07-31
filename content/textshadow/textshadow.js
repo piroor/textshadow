@@ -30,6 +30,7 @@ var TextShadowService = {
 	ATTR_DRAW_TIMER       : '_moz-textshadow-draw-timer',
 	ATTR_STYLE            : '_moz-textshadow-style',
 	ATTR_CACHE            : '_moz-textshadow',
+	ATTR_DONE             : '_moz-textshadow-done',
 	 
 /* Utilities */ 
 	 
@@ -77,32 +78,34 @@ var TextShadowService = {
  
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
-//var startTime = (new Date()).getTime();
 		var nodes = [];
 		var count = 0;
 
 		if (!aSelector) return nodes;
 
-		if (!aSpecificity) aSpecificity = {};
 		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument, aSpecificity);
-//dump('SELECTOR '+aSelector+'\n');
-//dump('      => '+expression+'\n');
-		if (!expression) return nodes;
+//dump('\n'+aSelector+'\n'+expressions.join('\n')+'\n');
+		if (!expression.length) return nodes;
 
-		for (var i = 0, maxi = expression.length; i < maxi; i++)
-		{
-			var result = this.getNodesByXPath(expression[i], aTargetDocument);
-			for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
+		if (aSpecificity) {
+			for (var i = 0, maxi = expression.length; i < maxi; i++)
 			{
-				var node = result.snapshotItem(j);
-				if (!('specificity' in node)) node.specificity = '0000';
-				if (parseInt(node.specificity) < parseInt(aSpecificity.specificities[i].value))
-					node.specificity = aSpecificity.specificities[i].value;
-				nodes[count++] = node;
+				var result = this.getNodesByXPath(expression[i], aTargetDocument);
+				aSpecificity.specificities[i].targets = [];
+				var targetCount = 0;
+				for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
+				{
+					aSpecificity.specificities[i].targets[targetCount++] = nodes[count++] = result.snapshotItem(j);
+				}
 			}
 		}
-//var endTime = (new Date()).getTime();
-//dump('getElementsBySelector '+(endTime-startTime)+'\n');
+		else {
+			var result = this.getNodesByXPath(expression, aTargetDocument);
+			for (var i = 0, maxi = result.length; i < maxi; i++)
+			{
+				nodes[count++] = result.snapshotItem(i);
+			}
+		}
 		return nodes;
 	},
 	
@@ -130,6 +133,7 @@ var TextShadowService = {
 			'id'          : '',
 			'class'       : '',
 			'pseud'       : '',
+			'pseuds'      : [],
 			'combinators' : ' ',
 			'clear'       : function () {
 				this.element     = '';
@@ -138,7 +142,11 @@ var TextShadowService = {
 				this.id          = '';
 				this.class       = '';
 				this.pseud       = '';
+				this.pseuds      = [];
 				this.combinators = '';
+			},
+			isEmpty : function() {
+				return !(this.element || this.attributes.length || this.id || this.class || this.pseuds.length);
 			}
 		};
 
@@ -175,11 +183,8 @@ var TextShadowService = {
 		function makeLocationStep(aStep, aConditions)
 		{
 			var step = aStep;
-			if (aConditions.length > 1) {
-				step += '[('+aConditions.join(') and (')+')]';
-			}
-			else if (aConditions.length == 1) {
-				step += '['+aConditions[0]+']';
+			if (aConditions.length) {
+				step += '['+aConditions.join('][')+']';
 			}
 			return step;
 		}
@@ -290,207 +295,217 @@ var TextShadowService = {
 
 		function search(aEndOfPath)
 		{
-			var step =
-				buf.combinators == '>' ? '*' :
-				buf.combinators == '+' ? 'following-sibling::*[1]' :
-				buf.combinators == '~' ? 'following-sibling::*' :
-				'descendant::*';
+			if (!buf.isEmpty()) {
+				var step =
+					buf.combinators == '>' ? '*' :
+					buf.combinators == '+' ? 'following-sibling::*[1]' :
+					buf.combinators == '~' ? 'following-sibling::*' :
+					'descendant::*';
 
-			aSpecificity.element++;
+				aSpecificity.element++;
 
-			var con       = [];
-			var conCount  = 0;
+				var con       = [];
+				var conCount  = 0;
 
-			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
-			var nameCondition = '';
-			if (tagName != '*') {
-				nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
-				con[conCount++] = nameCondition;
-			}
+				var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
+				var nameCondition = '';
+				if (tagName != '*') {
+					nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
+					con[conCount++] = nameCondition;
+				}
 
-			if (buf.id.length) {
-				con[conCount++] = '@id = "'+buf.id+'"';
-				aSpecificity.id++;
-			}
-			if (buf.class.length) {
-				var classes = buf.class.split('.').map(function(aItem) {
-						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
-					});
-				con[conCount++] = classes.join(' and ');
-				aSpecificity.condition += classes.length;
-			}
-			if (buf.attributes.length) {
+				if (buf.id.length) {
+					con[conCount++] = '@id = "'+buf.id+'"';
+					aSpecificity.id++;
+				}
+
+				if (buf.class.length) {
+					var classes = buf.class.split('.').map(function(aItem) {
+							return 'contains(concat(" ",@class," "), " '+aItem+' ")'
+						});
+					con[conCount++] = classes.join(' and ');
+					aSpecificity.condition += classes.length;
+				}
+
 				var attributes = buf.attributes;
-				for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ )
-				{
-					var attribute = attributes[i];
-					/^(\w+)\s*(?:([~\|\^\$\*]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
-					var attrName  = RegExp.$1;
-					var operator  = RegExp.$2;
-					var attrValue = RegExp.$3;
-					con[conCount++] =
-						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
-						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
-						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
-						operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
-						operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
-						operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
-							'@'+attrName;
-				}
-				aSpecificity.condition += attributes.length;
-			}
-
-			var pseudEvaluated = true;
-			aSpecificity.condition++;
-			if (buf.pseud.length) {
-				switch (buf.pseud)
-				{
-					case 'first-child':
-						con[conCount++] = 'not(preceding-sibling::*)';
-						break;
-					case 'last-child':
-						con[conCount++] = 'not(following-sibling::*)';
-						break;
-					case 'first-of-type':
-						con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
-					case 'last-of-type':
-						con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
-						break;
-					case 'only-child':
-						con[conCount++] = 'count(parent::*/child::*) = 1';
-						break;
-					case 'only-of-type':
-						con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
-						break;
-					case 'empty':
-						con[conCount++] = 'not(node())';
-						break;
-					case 'link':
-						con[conCount++] = '@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))';
-						break;
-					case 'enabled':
-						con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))';
-						break;
-					case 'disabled':
-						con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))';
-						break;
-					case 'checked':
-						con[conCount++] = '(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))';
-						break;
-					case 'indeterminate':
-						con[conCount++] = '(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))';
-						break;
-					case 'root':
-						step = step.replace(/^descendant::/, 'descendant-or-self::');
-						con[conCount++] = 'not(ancestor::*)';
-						break;
-					default:
-						var axis = /^nth-last-/.test(buf.pseud) ? 'following-sibling' : 'preceding-sibling' ;
-						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
-
-						if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
-							var spec = {};
-							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, spec, true)+')';
-							aSpecificity.id        += spec.id;
-							aSpecificity.element   += spec.element;
-							aSpecificity.condition += spec.condition;
-							aSpecificity.condition--;
-						}
-
-						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-							con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
-						}
-						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(buf.pseud)) {
-							con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
-						}
-						else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(buf.pseud)) {
-							con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
-						}
-
-						else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
-							con[conCount++] = 'contains(descendant::text(), "'+RegExp.$1+'")';
-						}
-
-						else {
-							aSpecificity.condition--;
-							pseudEvaluated = false;
-						}
-						break;
-				}
-				if (!pseudEvaluated) {
-					aSpecificity.condition++;
-					foundElements = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
-					switch (buf.pseud)
+				if (attributes.length) {
+					for (var i = 0, attr_len = attributes.length; i < attr_len; i++)
 					{
-						case 'visited':
-							if (self.silhouettePseud) {
-								var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-								foundElements = getElementsByCondition(function(aElement) {
-									var uri = aElement.href || aElement.getAttribute('href');
-									var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
-									var isVisited = false;
-									if (isLink) {
-										try {
-											isVisited = history.isVisited(self.makeURIFromSpec(uri));
-										}
-										catch(e) {
-											dump(uri+' / '+self.makeURIFromSpec(uri));
-											dump(e+'\n');
-										}
-										if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
-									}
-									return isLink && isVisited ? 1 : -1 ;
-								}, foundElements);
-								con[conCount++] = '@_moz-pseud-class-visited = "true"';
-								break;
-							}
+						var attribute = attributes[i];
+						/^(\w+)\s*(?:([~\|\^\$\*]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
+						var attrName  = RegExp.$1;
+						var operator  = RegExp.$2;
+						var attrValue = RegExp.$3;
+						attributes[i] =
+							operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
+							operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
+							operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
+							operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
+							operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
+							operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
+								'@'+attrName;
+					}
+					con[conCount++] = attributes.length > 1 ? '('+attributes.join(') and (')+')' : attributes[0] ;
+					aSpecificity.condition += attributes.length;
+				}
 
-						case 'target':
-							if (self.silhouettePseud) {
-								foundElements = getElementsByCondition(function(aElement) {
-									(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-									var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-									if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
-									return isTarget ? 1 : -1 ;
-								}, foundElements);
-								con[conCount++] = '@_moz-pseud-class-target = "true"';
-								break;
-							}
-
-						case 'first-letter':
-							if (self.silhouettePseud) {
-								foundElements = getFirstLetters(foundElements);
-								steps[stepsCount++] = makeLocationStep(step, con);
-								steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
-								step = null;
-								break;
-							}
-
-						case 'first-line':
-							if (self.silhouettePseud) {
-								foundElements = getFirstLines(foundElements);
-								steps[stepsCount++] = makeLocationStep(step, con);
-								steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
-								step = null;
-								break;
-							}
-
+				var pseuds = buf.pseuds;
+				pseudRoop:
+				for (var i = 0, maxi = pseuds.length; i < maxi; i++)
+				{
+					var pseud = pseuds[i];
+					if (!pseud) continue;
+					var pseudEvaluated = true;
+					aSpecificity.condition++;
+					switch (pseud)
+					{
+						case 'first-child':
+							con[conCount++] = 'not(preceding-sibling::*)';
+							break;
+						case 'last-child':
+							con[conCount++] = 'not(following-sibling::*)';
+							break;
+						case 'first-of-type':
+							con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
+						case 'last-of-type':
+							con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
+							break;
+						case 'only-child':
+							con[conCount++] = 'count(parent::*/child::*) = 1';
+							break;
+						case 'only-of-type':
+							con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
+							break;
+						case 'empty':
+							con[conCount++] = 'not(node())';
+							break;
+						case 'link':
+							con[conCount++] = '@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))';
+							break;
+						case 'enabled':
+							con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))';
+							break;
+						case 'disabled':
+							con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))';
+							break;
+						case 'checked':
+							con[conCount++] = '(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))';
+							break;
+						case 'indeterminate':
+							con[conCount++] = '(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))';
+							break;
+						case 'root':
+							step = step.replace(/^descendant::/, 'descendant-or-self::');
+							con[conCount++] = 'not(ancestor::*)';
+							break;
 						default:
-							aSpecificity.id        = 0;
-							aSpecificity.element   = 0;
-							aSpecificity.condition = 0;
-							step       = '';
-							con        = [];
-							conCount   = 0;
-							steps      = [];
-							stepsCount = 0;
-							foundElements = [aTargetDocument];
+							var axis = /^nth-last-/.test(pseud) ? 'following-sibling' : 'preceding-sibling' ;
+							var condition = /^nth-(last-)?of-type/.test(pseud) ? nameCondition : '' ;
+
+							if (/not\(\s*(.+)\s*\)$/.test(pseud)) {
+								var spec = {};
+								con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, spec, true)+')';
+								aSpecificity.id        += spec.id;
+								aSpecificity.element   += spec.element;
+								aSpecificity.condition += spec.condition;
+								aSpecificity.condition--;
+							}
+
+							else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(pseud)) {
+								con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
+							}
+							else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(pseud)) {
+								con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
+							}
+							else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(pseud)) {
+								con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
+							}
+
+							else if (/contains\(\s*["'](.+)["']\s*\)/.test(pseud)) {
+								con[conCount++] = 'contains(descendant::text(), "'+RegExp.$1+'")';
+							}
+
+							else {
+								aSpecificity.condition--;
+								pseudEvaluated = false;
+							}
 							break;
 					}
-				}
-			}
+					if (!pseudEvaluated) {
+						aSpecificity.condition++;
+						foundElements = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
+						switch (pseud)
+						{
+							case 'visited':
+								if (self.silhouettePseud) {
+									var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+									foundElements = getElementsByCondition(function(aElement) {
+										var uri = aElement.href || aElement.getAttribute('href');
+										var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+										var isVisited = false;
+										if (isLink) {
+											try {
+												isVisited = history.isVisited(self.makeURIFromSpec(uri));
+											}
+											catch(e) {
+												dump(uri+' / '+self.makeURIFromSpec(uri));
+												dump(e+'\n');
+											}
+											if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
+										}
+										return isLink && isVisited ? 1 : -1 ;
+									}, foundElements);
+									con[conCount++] = '@_moz-pseud-class-visited = "true"';
+									break;
+								}
 
-			if (step) steps[stepsCount++] = makeLocationStep(step, con);
+							case 'target':
+								if (self.silhouettePseud) {
+									foundElements = getElementsByCondition(function(aElement) {
+										(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+										var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+										if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+										return isTarget ? 1 : -1 ;
+									}, foundElements);
+									con[conCount++] = '@_moz-pseud-class-target = "true"';
+									break;
+								}
+
+							case 'first-letter':
+								if (self.silhouettePseud) {
+									steps[stepsCount++] = makeLocationStep(step, con);
+									foundElements = getFirstLetters(foundElements);
+									steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
+									step = null;
+									break;
+								}
+
+							case 'first-line':
+								if (self.silhouettePseud) {
+									steps[stepsCount++] = makeLocationStep(step, con);
+									foundElements = getFirstLines(foundElements);
+									steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
+									step = null;
+									break;
+								}
+
+							default:
+								aSpecificity.id        = 0;
+								aSpecificity.element   = 0;
+								aSpecificity.condition = 0;
+								step       = '';
+								con        = [];
+								conCount   = 0;
+								steps      = [];
+								stepsCount = 0;
+								foundElements = [aTargetDocument];
+								break pseudRoop;
+						}
+					}
+				}
+
+				if (step) steps[stepsCount++] = makeLocationStep(step, con);
+			}
 			buf.clear();
 
 			if (aEndOfPath) {
@@ -512,17 +527,19 @@ var TextShadowService = {
 					}
 				}
 				if (stepsCount) {
-					selector;
 					expressions[expressionsCount++] = (aInNotPseudClass ? '' : '/' ) + steps.join('/');
 					aSpecificity.specificities[specificityCount++] = {
 						selector : selector,
-						value    : parseInt([
-							0,
-							aSpecificity.id,
-							aSpecificity.condition,
-							aSpecificity.element
-						].join('') || '0000')
+						value    : [
+							'0',
+							aSpecificity.id || '0',
+							aSpecificity.condition || '0',
+							aSpecificity.element || '0'
+						].join('') || '0000'
 					};
+					aSpecificity.id        = 0;
+					aSpecificity.element   = 0;
+					aSpecificity.condition = 0;
 				}
 
 				steps      = [];
@@ -531,16 +548,20 @@ var TextShadowService = {
 			}
 		};
 
-
 		var escaped    = false;
 		var parenLevel = 0;
 		for ( var i = 0, len = tokens.length; i < len; i++  )
 		{
 			var token = tokens[i];
 			selector += token;
+
 			if (escaped) {
 				buf[mode] += token;
 				escaped = false;
+				continue;
+			}
+			else if (token == '\\') {
+				escaped = true;
 				continue;
 			}
 			else if (parenLevel && token != ')') {
@@ -548,14 +569,18 @@ var TextShadowService = {
 				buf[mode] += token;
 				continue;
 			}
+			else if (mode == 'attribute' && token != ']') {
+				buf[mode] += token;
+				continue;
+			}
 			switch (token)
 			{
-				case '\\':
-					escaped = true;
-					break;
-
 				// selector
 				case '[':
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
+					}
 					mode = 'attribute';
 					break;
 				case ']':
@@ -564,18 +589,27 @@ var TextShadowService = {
 					mode = 'element';
 					break;
 				case '.':
-					if (mode == 'class') {
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
+					}
+					else if (mode == 'class') {
 						buf[mode] += token;
 					}
 					mode = 'class';
 					break;
 				case '#':
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
+					}
 					mode = 'id';
 					break;
 
 				case ':':
-					if (mode == 'class') {
-						buf[mode] += token;
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
 					}
 					mode = 'pseud';
 					break;
@@ -587,6 +621,10 @@ var TextShadowService = {
 					break;
 				case ')':
 					buf[mode] += token;
+					if (mode == 'pseud') {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
+					}
 					if (parenLevel) {
 						parenLevel--;
 						if (!parenLevel) mode = 'element';
@@ -595,35 +633,23 @@ var TextShadowService = {
 
 				// combinators
 				case ' ':
-					search();
-					buf.combinators = ' ';
-					mode = 'element';
-					break;
 				case '>':
-					search();
-					buf.combinators = '>';
-					mode = 'element';
-					break;
 				case '+':
-					search();
-					buf.combinators = '+';
-					mode = 'element';
-					break;
 				case '~':
-					if (mode == 'attribute' || parenLevel) {
-						buf[mode] += token;
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
 					}
-					else {
-						search();
-						buf.combinators = '~';
-						mode = 'element';
-					}
+					search();
+					buf.combinators = token;
+					mode = 'element';
 					break;
 
 				// elements
 				case '*':
-					if (mode == 'attribute' || parenLevel) {
-						buf[mode] += token;
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
 					}
 					else {
 						buf.element = '*';
@@ -631,16 +657,15 @@ var TextShadowService = {
 					break;
 
 				case ',':
-					if (mode == 'attribute' || parenLevel) {
-						buf[mode] += token;
+					if (mode == 'pseud' && !parenLevel) {
+						buf.pseuds.push(buf.pseud);
+						buf.pseud = '';
 					}
-					else {
-						selector = selector.replace(/,$/, '');
-						search(true);
-						buf.combinators = ' ';
-						foundElements = [aTargetDocument]
-						mode = 'element';
-					}
+					selector = selector.replace(/,$/, '');
+					search(true);
+					buf.combinators = ' ';
+					foundElements = [aTargetDocument]
+					mode = 'element';
 					break;
 
 				// default
@@ -652,6 +677,10 @@ var TextShadowService = {
 			if (!foundElements.length) {
 				return makeOneExpression ? expressions.join(' | ') : expressions ;
 			}
+		}
+		if (mode == 'pseud' && !parenLevel) {
+			buf.pseuds.push(buf.pseud);
+			buf.pseud = '';
 		}
 		search(true);
 
@@ -771,9 +800,9 @@ var TextShadowService = {
 			try {
 				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
 				if (info) {
-					for (var j = 0, maxj = info.length; j < maxj; j++)
+					for (var j = 0, maxj = info.shadows.length; j < maxj; j++)
 					{
-						aSelf.drawShadow(cue, info[j].x, info[j].y, info[j].radius, info[j].color);
+						aSelf.drawShadow(cue, info.shadows[j].x, info.shadows[j].y, info.shadows[j].radius, info.shadows[j].color);
 					}
 				}
 			}
@@ -806,6 +835,9 @@ var TextShadowService = {
 		switch (aReason)
 		{
 			case this.UPDATE_PAGELOAD:
+				if (rootNode.hasAttribute(this.ATTR_DONE)) return;
+				rootNode.setAttribute(this.ATTR_DONE, true);
+
 				var nodes = this.collectTargets(aFrame);
 				if (!nodes) return;
 
@@ -932,7 +964,9 @@ var TextShadowService = {
 			array.push(shadow);
 		}
 
-		return array;
+		return {
+			shadows : array
+		};
 	},
  
 	collectTargets : function(aFrame) 
@@ -956,6 +990,8 @@ var TextShadowService = {
 			foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, styles[i].cssRules));
 		}
 
+		var foundCount = foundNodes.length;
+
 		var nodes = this.getNodesByXPath('//descendant::*[contains(@style, "text-shadow")]', aFrame.document);
 		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 		{
@@ -964,14 +1000,14 @@ var TextShadowService = {
 				continue;
 
 			var value = this.parseTextShadowValue(node.style.textShadow);
-			if (!value.length) continue;
+			if (!value.shadows.length) continue;
 			value.specificity = node.style.getPropertyPriority('text-shadow') == 'important' ? 11000 : 1000 ;
 
-			var oldVal = this.getJSValueFromAttribute(nodes[i], this.ATTR_STYLE);
+			var oldVal = this.getJSValueFromAttribute(node, this.ATTR_STYLE);
 			if (oldVal && oldVal.specificity > value.specificity) continue;
 
 			node.setAttribute(this.ATTR_STYLE, value.toSource());
-			foundNodes.push(node);
+			foundNodes[foundCount++] = node;
 		}
 		return foundNodes;
 	},
@@ -1069,29 +1105,40 @@ var TextShadowService = {
 	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
 	{
 		var foundNodes = [];
+		var foundCount = 0;
 		var value     = this.parseTextShadowValue(aCSSRule.style.textShadow);
-		if (!value.length) return foundNodes;
+		if (!value.shadows.length) return foundNodes;
 		value.important = aCSSRule.style.getPropertyPriority('text-shadow') == 'important';
 
-		var nodes = this.getElementsBySelector(aFrame.document, aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''));
+		var spec = {};
+		if (
+			this.getElementsBySelector(aFrame.document, aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''), spec).length &&
+			spec.specificities &&
+			spec.specificities.length
+			) {
+			for (var i = 0, maxi = spec.specificities.length; i < maxi; i++)
+			{
+				var nodes = spec.specificities[i].targets;
+				if (!nodes.length) continue;
 
-		for (var i = 0, maxi = nodes.length; i < maxi; i++)
-		{
-			if (
-				!nodes[i].textContent ||
-				/^\s*$/.test(nodes[i].textContent)
-				)
-				continue;
+				var specificity = spec.specificities[i].value;
+				specificity = Number((value.important ? '1' : '' )+specificity);
+				for (var j = 0, maxj = nodes.length; j < maxj; j++)
+				{
+					if (
+						!nodes[j].textContent ||
+						/^\s*$/.test(nodes[j].textContent)
+						)
+						continue;
 
-			if (value.important) nodes[i].specificity = '1' + nodes[i].specificity;
-			nodes[i].specificity = parseInt(nodes[i].specificity);
+					var oldVal = this.getJSValueFromAttribute(nodes[j], this.ATTR_STYLE);
+					if (oldVal && oldVal.specificity > specificity) continue;
 
-			var oldVal = this.getJSValueFromAttribute(nodes[i], this.ATTR_STYLE);
-			if (oldVal && oldVal.specificity > nodes[i].specificity) continue;
-
-			value.specificity = nodes[i].specificity;
-			nodes[i].setAttribute(this.ATTR_STYLE, value.toSource());
-			foundNodes.push(nodes[i]);
+					value.specificity = specificity;
+					nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
+					foundNodes[foundCount++] = nodes[j];
+				}
+			}
 		}
 
 		return foundNodes;

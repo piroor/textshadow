@@ -12,7 +12,7 @@ var TextShadowService = {
 	UPDATE_RESIZE         : 2,
 	UPDATE_REBUILD        : 3,
 
-	ID_PREFIX             : '_moz-textshadow-target-',
+	ID_PREFIX             : '_moz-textshadow-temp-',
 
 	SHADOW                : 'span',
 	SHADOW_CLASS          : '_moz-textshadow-box',
@@ -26,9 +26,12 @@ var TextShadowService = {
 	FIRSTLINE_CLASS       : '_moz-first-line-pseud',
 	FIRSTLINE_CONDITION   : '@class = "_moz-first-line-pseud"',
 
-	ATTR_DRAW_CUE         : '_moz-textshadow-cue',
+	ATTR_INIT_CUE         : '_moz-textshadow-init-cue',
+	ATTR_INIT_TIMER       : '_moz-textshadow-init-timer',
+	ATTR_DRAW_CUE         : '_moz-textshadow-draw-cue',
 	ATTR_DRAW_TIMER       : '_moz-textshadow-draw-timer',
 	ATTR_STYLE            : '_moz-textshadow-style',
+	ATTR_STYLE_FOR_EACH   : '_moz-textshadow-part-style',
 	ATTR_CACHE            : '_moz-textshadow',
 	ATTR_DONE             : '_moz-textshadow-done',
 	 
@@ -698,10 +701,10 @@ var TextShadowService = {
 		}
 		return value;
 	},
- 	 
+  
 /* draw shadow */ 
 	 
-	drawShadow : function(aElement, aX, aY, aRadius, aColor) 
+	drawShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
 		var boxes = [];
@@ -710,13 +713,16 @@ var TextShadowService = {
 		if (shadowBoxes.snapshotLength) {
 			for (var i = 0, maxi = shadowBoxes.snapshotLength; i < maxi; i++)
 			{
-				boxes.push(shadowBoxes.snapshotItem(i));
+				var box = shadowBoxes.snapshotItem(i);
+				box.setAttribute(this.ATTR_STYLE_FOR_EACH, aElement.getAttribute(this.ATTR_STYLE));
+				boxes.push(box);
 			}
 		}
 		else {
 			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
 			var wrapper = d.createElement(this.SHADOW);
 			wrapper.setAttribute('class', this.SHADOW_CLASS);
+			wrapper.setAttribute(this.ATTR_STYLE_FOR_EACH, aElement.getAttribute(this.ATTR_STYLE));
 			for (var i = 0, maxi = textNodes.snapshotLength; i < maxi; i++)
 			{
 				var node = textNodes.snapshotItem(i);
@@ -745,23 +751,21 @@ var TextShadowService = {
 			}
 		}
 
-		var sandbox = Components.utils.Sandbox(d.defaultView.location.href);
-		sandbox.x      = aX;
-		sandbox.y      = aY;
-		sandbox.radius = aRadius;
-		sandbox.color  = aColor;
-		sandbox.positionQuality = this.positionQuality;
-		for (var i in boxes)
-		{
-			sandbox.node   = boxes[i].wrappedJSObject;
-			try {
-				Components.utils.evalInSandbox('node.drawShadow(x, y, radius, color, positionQuality);', sandbox);
-			}
-			catch(e) {
-			}
-		}
+		var self = this;
+		var cues = this.getJSValueFromAttribute(d.documentElement, this.ATTR_DRAW_CUE) || [];
+		d.documentElement.removeAttribute(this.ATTR_DRAW_CUE,);
+		cues = cues.concat(boxes.map(function(aItem) {
+				var id = aItem.getAttribute('id');
+				if (!id) {
+					id = self.ID_PREFIX+parseInt(Math.random() * 1000000);
+					aItem.setAttribute('id', id);
+				}
+				return id;
+			}));
+		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
+		this.startDraw(d.defaultView);
 	},
-	 
+ 	
 	clearShadow : function(aElement) 
 	{
 		var boxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aElement);
@@ -778,8 +782,8 @@ var TextShadowService = {
 			}
 		}
 	},
-  
-	startDrawShadow : function(aFrame) 
+ 
+	startDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
 		var cues = this.getJSValueFromAttribute(node, this.ATTR_DRAW_CUE);
@@ -790,16 +794,85 @@ var TextShadowService = {
 		if (timerId) {
 			aFrame.clearTimeout(timerId);
 		}
-		timerId = aFrame.setTimeout(this.delayedDrawShadow, 0, this, aFrame);
+		timerId = aFrame.setTimeout(this.delayedDraw, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
 	 
-	delayedDrawShadow : function(aSelf, aFrame) 
+	delayedDraw : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
+		node.removeAttribute(aSelf.ATTR_DRAW_TIMER);
+
 		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_DRAW_CUE);
+		node.removeAttribute(aSelf.ATTR_DRAW_CUE,);
 		if (!cues || !cues.length) {
-			node.removeAttribute(aSelf.ATTR_DRAW_TIMER);
+			return;
+		}
+
+		var sandbox = Components.utils.Sandbox(aFrame.location.href);
+		var lastParent;
+		var info;
+		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
+		{
+			var cue = aFrame.document.getElementById(cues.splice(0, 1));
+			if (!cue) {
+				i--;
+				continue;
+			}
+
+			try {
+				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE_FOR_EACH);
+				if (info) {
+					for (var j = 0, maxj = info.shadows.length; j < maxj; j++)
+					{
+						sandbox.node   = cue.wrappedJSObject;
+						sandbox.x      = info.shadows[j].x;
+						sandbox.y      = info.shadows[j].y;
+						sandbox.radius = info.shadows[j].radius;
+						sandbox.color  = info.shadows[j].color;
+						sandbox.positionQuality = aSelf.positionQuality;
+						try {
+							Components.utils.evalInSandbox('node.drawShadow(x, y, radius, color, positionQuality);', sandbox);
+						}
+						catch(e) {
+						}
+					}
+				}
+			}
+			catch(e) {
+			}
+
+			cue.removeAttribute('id');
+		}
+
+		node.setAttribute(aSelf.ATTR_DRAW_CUE, cues.toSource());
+		var timerId = aFrame.setTimeout(aSelf.delayedDraw, 0, aSelf, aFrame);
+		node.setAttribute(aSelf.ATTR_DRAW_TIMER, timerId);
+	},
+  
+	startInitialize : function(aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
+		if (!cues || !cues.length)
+			return;
+
+		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
+		}
+		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame);
+		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
+	},
+	 
+	delayedInitialize : function(aSelf, aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
+
+		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
+		node.removeAttribute(aSelf.ATTR_INIT_CUE,);
+		if (!cues || !cues.length) {
 			return;
 		}
 
@@ -812,26 +885,16 @@ var TextShadowService = {
 			}
 
 			aSelf.clearShadow(cue);
-
-			try {
-				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE);
-				if (info) {
-					for (var j = 0, maxj = info.shadows.length; j < maxj; j++)
-					{
-						aSelf.drawShadow(cue, info.shadows[j].x, info.shadows[j].y, info.shadows[j].radius, info.shadows[j].color);
-					}
-				}
-			}
-			catch(e) {
-			}
+			aSelf.drawShadow(cue);
 
 			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
 				cue.removeAttribute('id');
 		}
 
-		node.setAttribute(aSelf.ATTR_DRAW_CUE, cues.toSource());
+		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
 
-		aSelf.startDrawShadow(aFrame);
+		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame);
+		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
 	},
   
 	updateShadowForFrame : function(aFrame, aReason) 
@@ -846,7 +909,8 @@ var TextShadowService = {
 
 		var d = aFrame.document;
 		var rootNode = d.documentElement;
-		var cues = this.getJSValueFromAttribute(rootNode, this.ATTR_DRAW_CUE);
+		var cues = this.getJSValueFromAttribute(rootNode, this.ATTR_INIT_CUE);
+		rootNode.removeAttribute(this.ATTR_INIT_CUE);
 		if (!cues) cues = [];
 		switch (aReason)
 		{
@@ -886,13 +950,13 @@ var TextShadowService = {
 						}
 						return id;
 					}));
-				rootNode.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
-				this.startDrawShadow(aFrame);
+				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
+				this.startInitialize(aFrame);
 				break;
 
 			case this.UPDATE_RESIZE:
 			case this.UPDATE_REBUILD:
-				var nodes = this.getNodesByXPath('//descendant::*[@'+this.ATTR_STYLE+']', d);
+				var nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
 				if (!nodes.snapshotLength) return;
 				var nodesArray = [];
 				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
@@ -914,8 +978,8 @@ var TextShadowService = {
 						}
 						return id;
 					}));
-				rootNode.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
-				this.startDrawShadow(aFrame);
+				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
+				this.startInitialize(aFrame);
 				break;
 		}
 	},
@@ -1162,11 +1226,8 @@ var TextShadowService = {
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
-//var startTime = (new Date()).getTime();
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
-//var endTime = (new Date()).getTime();
-//dump('updateShadow '+(endTime - startTime)+'\n');
 	},
  
 	updateAllShadows : function(aTabBrowser, aReason) 

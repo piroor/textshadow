@@ -216,13 +216,15 @@
 			var d = document;
 			var w = window;
 			var box = this;
-			while ((display = w.getComputedStyle(box, null).getPropertyValue('display')) != 'block' && display != '-moz-box' && box.parentNode)
+			var display;
+			while (!/^table-|block|-moz-box/.test(display = w.getComputedStyle(box, null).getPropertyValue('display')) && box.parentNode)
 			{
 				box = box.parentNode;
 			}
 			if (box == d) box = d.documentElement;
 			return {
 				sizeBox   : box,
+				display   : display,
 				indent    : this.getComputedPixels('text-indent', box),
 				width     : d.getBoxObjectFor(this).width,
 				height    : d.getBoxObjectFor(this).height,

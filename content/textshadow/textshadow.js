@@ -439,7 +439,6 @@ var TextShadowService = {
 							break;
 					}
 					if (!pseudEvaluated) {
-						aSpecificity.condition++;
 						foundElements = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
 						switch (pseud)
 						{
@@ -463,6 +462,7 @@ var TextShadowService = {
 										return isLink && isVisited ? 1 : -1 ;
 									}, foundElements);
 									con[conCount++] = '@_moz-pseud-class-visited = "true"';
+									aSpecificity.condition++;
 									break;
 								}
 
@@ -475,6 +475,7 @@ var TextShadowService = {
 										return isTarget ? 1 : -1 ;
 									}, foundElements);
 									con[conCount++] = '@_moz-pseud-class-target = "true"';
+									aSpecificity.condition++;
 									break;
 								}
 

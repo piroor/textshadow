@@ -87,24 +87,84 @@ License: |
     OTHER DEALINGS IN THE SOFTWARE.
 */
 
-document.getElementsBySelector = function(aSelector) {
+/*
+
+USAGE:
+
+	// simple case 1
+	var nodes = document.getElementsBySelector('p > em:first-of-type');
+	for (var i in nodes)
+		nodes[i].style.border = 'red solid 1px';
+
+	// simple case 2
+	var nodes = document.getElementsBySelector('p:nth-child(even), li:nth-child(2n+1)');
+	for (var i in nodes)
+		nodes[i].style.background = 'blue';
+
+
+	// with specificity of each selector
+	var report = '';
+	var spec   = {};
+	document.getElementsBySelector('p > li, #foobar ul li', spec);
+	for (var i in spec.specificity)
+	{
+		report += 'selector: '+spec.specificity[i].selector+'\n'+
+				'specificity: '+spec.specificity[i].value+'\n'+
+				'nodes: '+spec.specificity[i].targets+'\n----\n';
+
+		var nodes = spec.specificity[i].targets;
+		for (var j in nodes)
+			nodes[i].style.color = 'purple';
+	}
+	alert(report);
+	// The sample above will show a report like:
+	//
+	//	selector: p > li
+	//	specificity: 0002
+	//	nodes: 4
+	//	----
+	//	selector: #foobar ul li
+	//	specificity: 0102
+	//	nodes: 5
+	//	----
+	//
+	// What is "specificity"?
+	// See: http://www.w3.org/TR/CSS21/cascade.html#specificity
+
+*/
+
+document.getElementsBySelector = function(aSelector, aSpecificity) {
 	var nodes = [];
 	var count = 0;
 
 	if (!aSelector) return nodes;
 
-	var expression = this.convertSelectorToXPath(aSelector);
-	if (!expression) return nodes;
+	var expression = this.convertSelectorToXPath(aSelector, aSpecificity);
+	if (!expression.length) return nodes;
 
-	result = this.getNodesByXPath(expression);
-	for (var i = 0, maxi = result.snapshotLength; i < maxi; i++)
-	{
-		nodes[count++] = result.snapshotItem(i);
+	if (aSpecificity) {
+		for (var i = 0, maxi = expression.length; i < maxi; i++)
+		{
+			var result = this.getNodesByXPath(expression[i]);
+			aSpecificity.specificities[i].targets = [];
+			var targetCount = 0;
+			for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
+			{
+				aSpecificity.specificities[i].targets[targetCount++] = nodes[count++] = result.snapshotItem(j);
+			}
+		}
+	}
+	else {
+		var result = this.getNodesByXPath(expression);
+		for (var i = 0, maxi = result.length; i < maxi; i++)
+		{
+			nodes[count++] = result.snapshotItem(i);
+		}
 	}
 	return nodes;
 };
 
-document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
+document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudClass) {
 
 	// 元のドキュメントをいじりたくない場合は、falseにすること。
 	// If you don't want to modify original document, set this to false.
@@ -112,13 +172,18 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 //------------------------------------------------------------------------
 
+	var makeOneExpression = false;
+	if (!aSpecificity) {
+		makeOneExpression = true;
+		aSpecificity = {};
+	}
+
 	var self = this;
 	var foundElements = [this];
 
 	var tokens = aSelector
 				.replace(/\s+/g, ' ')
 				.replace(/\s*([>+])\s*/g, '$1');
-//dump(tokens+'\n');
 
 	tokens = tokens.split('');
 
@@ -129,6 +194,7 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 		'id'          : '',
 		'class'       : '',
 		'pseud'       : '',
+		'pseuds'      : [],
 		'combinators' : ' ',
 		'clear'       : function () {
 			this.element     = '';
@@ -137,16 +203,27 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 			this.id          = '';
 			this.class       = '';
 			this.pseud       = '';
+			this.pseuds      = [];
 			this.combinators = '';
+		},
+		isEmpty : function() {
+			return !(this.element || this.attributes.length || this.id || this.class || this.pseuds.length);
 		}
 	};
 
 	var mode = 'element';
 
-	var steps            = [];
-	var stepsCount       = 0;
-	var expressions      = [];
-	var expressionsCount = 0;
+	var steps              = [];
+	var stepsCount         = 0;
+	var expressions        = [];
+	var expressionsCount   = 0;
+
+	var selector               = '';
+	aSpecificity.id            = 0;
+	aSpecificity.element       = 0;
+	aSpecificity.condition     = 0;
+	aSpecificity.specificities = [];
+	var specificityCount       = 0;
 
 	function evaluate(aExpression, aTargetElements)
 	{
@@ -162,6 +239,15 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 			}
 		}
 		return found;
+	}
+
+	function makeLocationStep(aStep, aConditions)
+	{
+		var step = aStep;
+		if (aConditions.length) {
+			step += '['+aConditions.join('][')+']';
+		}
+		return step;
 	}
 
 	function getElementsByCondition( callback, targetElements )
@@ -270,203 +356,220 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 	function search(aEndOfPath)
 	{
-		var step = [];
-		var stepCount = 0;
+		if (!buf.isEmpty()) {
+			var step =
+				buf.combinators == '>' ? '*' :
+				buf.combinators == '+' ? 'following-sibling::*[1]' :
+				buf.combinators == '~' ? 'following-sibling::*' :
+				'descendant::*';
 
-		step[stepCount++] =
-			buf.combinators == '>' ? '*' :
-			buf.combinators == '+' ? 'following-sibling::*[1]' :
-			buf.combinators == '~' ? 'following-sibling::*' :
-			'descendant::*';
+			aSpecificity.element++;
 
-		var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
-		var nameCondition = '';
-		if (tagName != '*') {
-			nameCondition = '[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
-			step[stepCount++] = nameCondition;
-		}
+			var con       = [];
+			var conCount  = 0;
 
-		if (buf.id.length) step[stepCount++] = '[@id = "'+buf.id+'"]';
-		if (buf.class.length) {
-			var classes = buf.class.split('.').map(function(aItem) {
-					return 'contains(concat(" ",@class," "), " '+aItem+' ")'
-				});
-			step[stepCount++] = '['+classes.join(' and ')+']';
-		}
-		if (buf.attributes.length) {
+			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
+			var nameCondition = '';
+			if (tagName != '*') {
+				nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
+				con[conCount++] = nameCondition;
+			}
+
+			if (buf.id.length) {
+				con[conCount++] = '@id = "'+buf.id+'"';
+				aSpecificity.id++;
+			}
+
+			if (buf.class.length) {
+				var classes = buf.class.split('.').map(function(aItem) {
+						return 'contains(concat(" ",@class," "), " '+aItem+' ")'
+					});
+				con[conCount++] = classes.join(' and ');
+				aSpecificity.condition += classes.length;
+			}
+
 			var attributes = buf.attributes;
-			for ( var i = 0, attr_len = attributes.length; i < attr_len; i++ )
-			{
-				var attribute = attributes[i];
-				/^(\w+)\s*(?:([~\|\^\$\*]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
-				var attrName  = RegExp.$1;
-				var operator  = RegExp.$2;
-				var attrValue = RegExp.$3;
-				step[stepCount++] = '['+(
-					operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
-					operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
-					operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
-					operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
-					operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
-					operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
-						'@'+attrName
-				)+']';
+			if (attributes.length) {
+				for (var i = 0, attr_len = attributes.length; i < attr_len; i++)
+				{
+					var attribute = attributes[i];
+					/^(\w+)\s*(?:([~\|\^\$\*]?=)\s*["]?(.+?)["]?)?$/.test(attribute);
+					var attrName  = RegExp.$1;
+					var operator  = RegExp.$2;
+					var attrValue = RegExp.$3;
+					attributes[i] =
+						operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
+						operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
+						operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
+						operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
+						operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
+						operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
+							'@'+attrName;
+				}
+				con[conCount++] = attributes.length > 1 ? '('+attributes.join(') and (')+')' : attributes[0] ;
+				aSpecificity.condition += attributes.length;
 			}
-		}
 
-		var pseudEvaluated = true;
-		if (buf.pseud.length) {
-			switch (buf.pseud)
+			var pseuds = buf.pseuds;
+			pseudRoop:
+			for (var i = 0, maxi = pseuds.length; i < maxi; i++)
 			{
-				case 'first-child':
-					step[stepCount++] = '[not(preceding-sibling::*)]';
-					break;
-				case 'last-child':
-					step[stepCount++] = '[not(following-sibling::*)]';
-					break;
-				case 'first-of-type':
-					step[stepCount++] = '[not(preceding-sibling::*'+nameCondition+')]';
-				case 'last-of-type':
-					step[stepCount++] = '[not(following-sibling::*'+nameCondition+')]';
-					break;
-				case 'only-child':
-					step[stepCount++] = '[count(parent::*/child::*) = 1]';
-					break;
-				case 'only-of-type':
-					step[stepCount++] = '[count(parent::*/child::*'+nameCondition+') = 1]';
-					break;
-				case 'empty':
-					step[stepCount++] = '[not(node())]';
-					break;
-				case 'link':
-					step[stepCount++] = '[@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))]';
-					break;
-				case 'enabled':
-					step[stepCount++] = '[(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))]';
-					break;
-				case 'disabled':
-					step[stepCount++] = '[(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))]';
-					break;
-				case 'checked':
-					step[stepCount++] = '[(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))]';
-					break;
-				case 'indeterminate':
-					step[stepCount++] = '[(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))]';
-					break;
-				case 'root':
-					step[stepCount++] = '[not(ancestor::*)]';
-					break;
-				default:
-						var axis = /^nth-last-/.test(buf.pseud) ? 'following-sibling' : 'preceding-sibling' ;
-						var condition = /^nth-(last-)?of-type/.test(buf.pseud) ? nameCondition : '' ;
-
-					if (/not\(\s*(.+)\s*\)$/.test(buf.pseud)) {
-						step[stepCount++] = '[not('+self.convertSelectorToXPath(RegExp.$1, true)+')]';
-					}
-
-					else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1)+']';
-					}
-					else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(buf.pseud)) {
-						step[stepCount++] = '[(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1]';
-					}
-					else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' )+']';
-					}
-
-					else if (/contains\(\s*["'](.+)["']\s*\)/.test(buf.pseud)) {
-						step[stepCount++] = '[contains(descendant::text(), "'+RegExp.$1+'")]';
-					}
-
-					else {
-						pseudEvaluated = false;
-					}
-					break;
-			}
-		}
-
-		// Pseud-class
-		if (!pseudEvaluated && buf.pseud.length) {
-			var found = evaluate(steps.join('/')+'/'+step.join(''), foundElements);
-			switch (buf.pseud)
-			{
-/*
-				case 'visited':
-					if (silhouettePseudElementsAndClasses) {
-						var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-						found = getElementsByCondition(function(aElement) {
-							var uri = aElement.href || aElement.getAttribute('href');
-							var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
-							var isVisited = false;
-							if (isLink) {
-								try {
-									isVisited = history.isVisited(self.makeURIFromSpec(uri));
-								}
-								catch(e) {
-									dump(uri+' / '+self.makeURIFromSpec(uri));
-									dump(e+'\n');
-								}
-								if (isVisited) {
-									var className = aElement.getAttribute('class');
-									aElement.setAttribute('class', (className ? className+' ' : '' )+'pseud-class-visited');
-								}
-							}
-							return isLink && isVisited ? 1 : -1 ;
-						}, found);
-						step[stepCount++] = '[contains(concat(" ",@class," "), " pseud-class-visited ")]';
+				var pseud = pseuds[i];
+				if (!pseud) continue;
+				var pseudEvaluated = true;
+				aSpecificity.condition++;
+				switch (pseud)
+				{
+					case 'first-child':
+						con[conCount++] = 'not(preceding-sibling::*)';
 						break;
-					}
+					case 'last-child':
+						con[conCount++] = 'not(following-sibling::*)';
+						break;
+					case 'first-of-type':
+						con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
+					case 'last-of-type':
+						con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
+						break;
+					case 'only-child':
+						con[conCount++] = 'count(parent::*/child::*) = 1';
+						break;
+					case 'only-of-type':
+						con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
+						break;
+					case 'empty':
+						con[conCount++] = 'not(node())';
+						break;
+					case 'link':
+						con[conCount++] = '@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))';
+						break;
+					case 'enabled':
+						con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))';
+						break;
+					case 'disabled':
+						con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))';
+						break;
+					case 'checked':
+						con[conCount++] = '(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))';
+						break;
+					case 'indeterminate':
+						con[conCount++] = '(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))';
+						break;
+					case 'root':
+						step = step.replace(/^descendant::/, 'descendant-or-self::');
+						con[conCount++] = 'not(ancestor::*)';
+						break;
+					default:
+						var axis = /^nth-last-/.test(pseud) ? 'following-sibling' : 'preceding-sibling' ;
+						var condition = /^nth-(last-)?of-type/.test(pseud) ? nameCondition : '' ;
+
+						if (/not\(\s*(.+)\s*\)$/.test(pseud)) {
+							var spec = {};
+							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, spec, true)+')';
+							aSpecificity.id        += spec.id;
+							aSpecificity.element   += spec.element;
+							aSpecificity.condition += spec.condition;
+							aSpecificity.condition--;
+						}
+
+						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(pseud)) {
+							con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
+						}
+						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(pseud)) {
+							con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
+						}
+						else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(pseud)) {
+							con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
+						}
+
+						else if (/contains\(\s*["'](.+)["']\s*\)/.test(pseud)) {
+							con[conCount++] = 'contains(descendant::text(), "'+RegExp.$1+'")';
+						}
+
+						else {
+							aSpecificity.condition--;
+							pseudEvaluated = false;
+						}
+						break;
+				}
+				if (!pseudEvaluated) {
+					foundElements = evaluate(steps.join('/')+'/'+makeLocationStep(step, con), foundElements);
+					switch (pseud)
+					{
+/*
+						case 'visited':
+							if (silhouettePseudElementsAndClasses) {
+								var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
+								foundElements = getElementsByCondition(function(aElement) {
+									var uri = aElement.href || aElement.getAttribute('href');
+									var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+									var isVisited = false;
+									if (isLink) {
+										try {
+											isVisited = history.isVisited(self.makeURIFromSpec(uri));
+										}
+										catch(e) {
+											dump(uri+' / '+self.makeURIFromSpec(uri));
+											dump(e+'\n');
+										}
+										if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
+									}
+									return isLink && isVisited ? 1 : -1 ;
+								}, foundElements);
+								con[conCount++] = '@_moz-pseud-class-visited = "true"';
+								aSpecificity.condition++;
+								break;
+							}
 */
 
-				case 'target':
-					if (silhouettePseudElementsAndClasses) {
-						found = getElementsByCondition(function(aElement) {
-							(/#(.+)$/).test(self.defaultView.location.href);
-							var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-							if (isTarget) {
-								var className = aElement.getAttribute('class');
-								aElement.setAttribute('class', (className ? className+' ' : '' )+'pseud-class-target');
+						case 'target':
+							if (silhouettePseudElementsAndClasses) {
+								foundElements = getElementsByCondition(function(aElement) {
+									(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
+									var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
+									if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+									return isTarget ? 1 : -1 ;
+								}, foundElements);
+								con[conCount++] = '@_moz-pseud-class-target = "true"';
+								aSpecificity.condition++;
+								break;
 							}
-							return isTarget ? 1 : -1 ;
-						}, found);
-						step[stepCount++] = '[contains(concat(" ",@class," "), " pseud-class-target ")]';
-						break;
-					}
 
-				case 'first-letter':
-					if (silhouettePseudElementsAndClasses) {
-						found = getFirstLetters(found);
-						if (stepCount) {
-							steps[stepsCount++] = step.join('');
-							stepCount = 0;
-						}
-						steps[stepsCount++] = 'descendant::**[@class = "pseud-first-letter"]';
-						break;
-					}
+						case 'first-letter':
+							if (silhouettePseudElementsAndClasses) {
+								steps[stepsCount++] = makeLocationStep(step, con);
+								foundElements = getFirstLetters(foundElements);
+								steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
+								step = null;
+								break;
+							}
 
-				case 'first-line':
-					if (silhouettePseudElementsAndClasses) {
-						found = getFirstLines(found);
-						if (stepCount) {
-							steps[stepsCount++] = step.join('');
-							stepCount = 0;
-						}
-						steps[stepsCount++] = '/descendant::**[@class = "pseud-first-line"]';
-						break;
-					}
+						case 'first-line':
+							if (silhouettePseudElementsAndClasses) {
+								steps[stepsCount++] = makeLocationStep(step, con);
+								foundElements = getFirstLines(foundElements);
+								steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
+								step = null;
+								break;
+							}
 
-				default:
-					steps      = [];
-					stepsCount = 0;
-					step       = [];
-					stepCount  = 0;
-					found      = [];
-					break;
+						default:
+							aSpecificity.id        = 0;
+							aSpecificity.element   = 0;
+							aSpecificity.condition = 0;
+							step       = '';
+							con        = [];
+							conCount   = 0;
+							steps      = [];
+							stepsCount = 0;
+							foundElements = [self];
+							break pseudRoop;
+					}
+				}
 			}
-			foundElements = found;
-		}
 
-		if (stepCount) steps[stepsCount++] = step.join('');
+			if (step) steps[stepsCount++] = makeLocationStep(step, con);
+		}
 		buf.clear();
 
 		if (aEndOfPath) {
@@ -487,23 +590,42 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 					}
 				}
 			}
-			if (stepsCount)
+			if (stepsCount) {
 				expressions[expressionsCount++] = (aInNotPseudClass ? '' : '/' ) + steps.join('/');
+				aSpecificity.specificities[specificityCount++] = {
+					selector : selector,
+					value    : [
+						'0',
+						aSpecificity.id || '0',
+						aSpecificity.condition || '0',
+						aSpecificity.element || '0'
+					].join('') || '0000'
+				};
+				aSpecificity.id        = 0;
+				aSpecificity.element   = 0;
+				aSpecificity.condition = 0;
+			}
 
 			steps      = [];
 			stepsCount = 0;
+			selector   = '';
 		}
 	};
 
-
-	var escaped = false;
+	var escaped    = false;
 	var parenLevel = 0;
 	for ( var i = 0, len = tokens.length; i < len; i++  )
 	{
 		var token = tokens[i];
+		selector += token;
+
 		if (escaped) {
 			buf[mode] += token;
 			escaped = false;
+			continue;
+		}
+		else if (token == '\\') {
+			escaped = true;
 			continue;
 		}
 		else if (parenLevel && token != ')') {
@@ -511,14 +633,18 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 			buf[mode] += token;
 			continue;
 		}
+		else if (mode == 'attribute' && token != ']') {
+			buf[mode] += token;
+			continue;
+		}
 		switch (token)
 		{
-			case '\\':
-				escaped = true;
-				break;
-
 			// selector
 			case '[':
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
+				}
 				mode = 'attribute';
 				break;
 			case ']':
@@ -527,16 +653,28 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				mode = 'element';
 				break;
 			case '.':
-				if (mode == 'class') {
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
+				}
+				else if (mode == 'class') {
 					buf[mode] += token;
 				}
 				mode = 'class';
 				break;
 			case '#':
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
+				}
 				mode = 'id';
 				break;
 
 			case ':':
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
+				}
 				mode = 'pseud';
 				break;
 			case '(':
@@ -547,6 +685,10 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				break;
 			case ')':
 				buf[mode] += token;
+				if (mode == 'pseud') {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
+				}
 				if (parenLevel) {
 					parenLevel--;
 					if (!parenLevel) mode = 'element';
@@ -555,35 +697,23 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 			// combinators
 			case ' ':
-				search();
-				buf.combinators = ' ';
-				mode = 'element';
-				break;
 			case '>':
-				search();
-				buf.combinators = '>';
-				mode = 'element';
-				break;
 			case '+':
-				search();
-				buf.combinators = '+';
-				mode = 'element';
-				break;
 			case '~':
-				if (mode == 'attribute' || parenLevel) {
-					buf[mode] += token;
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
 				}
-				else {
-					search();
-					buf.combinators = '~';
-					mode = 'element';
-				}
+				search();
+				buf.combinators = token;
+				mode = 'element';
 				break;
 
 			// elements
 			case '*':
-				if (mode == 'attribute' || parenLevel) {
-					buf[mode] += token;
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
 				}
 				else {
 					buf.element = '*';
@@ -591,15 +721,15 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 				break;
 
 			case ',':
-				if (mode == 'attribute' || parenLevel) {
-					buf[mode] += token;
+				if (mode == 'pseud' && !parenLevel) {
+					buf.pseuds.push(buf.pseud);
+					buf.pseud = '';
 				}
-				else {
-					search(true);
-					buf.combinators = ' ';
-					foundElements = [aTargetDocument]
-					mode = 'element';
-				}
+				selector = selector.replace(/,$/, '');
+				search(true);
+				buf.combinators = ' ';
+				foundElements = [self]
+				mode = 'element';
 				break;
 
 			// default
@@ -609,12 +739,16 @@ document.convertSelectorToXPath = function(aSelector, aInNotPseudClass) {
 
 		}
 		if (!foundElements.length) {
-			return '';
+			return makeOneExpression ? expressions.join(' | ') : expressions ;
 		}
+	}
+	if (mode == 'pseud' && !parenLevel) {
+		buf.pseuds.push(buf.pseud);
+		buf.pseud = '';
 	}
 	search(true);
 
-	return expressionsCount ? expressions.join(' | ') : '' ;
+	return makeOneExpression ? expressions.join(' | ') : expressions ;
 };
 
 document.getNodesByXPath = function(aExpression, aContext, aLive) 

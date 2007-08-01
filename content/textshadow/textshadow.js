@@ -11,17 +11,19 @@ var TextShadowService = {
 	UPDATE_PAGELOAD       : 1,
 	UPDATE_RESIZE         : 2,
 	UPDATE_REBUILD        : 3,
-
-	ID_PREFIX             : '_moz-textshadow-temp-',
-
-	SHADOW                : 'span',
+	 
+/* coustructions */ 
+	 
+	ID_PREFIX             : '_moz-textshadow-temp-', 
+ 
+	SHADOW                : 'span', 
 	SHADOW_CLASS          : '_moz-textshadow-box',
 	SHADOW_CONDITION      : '@class = "_moz-textshadow-box"',
 
 	SHADOW_CONTAINER      : '_moz-textshadow-shadow',
 	SHADOW_PART           : '_moz-textshadow-shadow-part',
-
-	FIRSTLETTER           : 'span',
+ 
+	FIRSTLETTER           : 'span', 
 	FIRSTLETTER_CLASS     : '_moz-first-letter-pseud',
 	FIRSTLETTER_CONDITION : '@class = "_moz-first-letter-pseud"',
 
@@ -29,7 +31,8 @@ var TextShadowService = {
 	FIRSTLINE_CLASS       : '_moz-first-line-pseud',
 	FIRSTLINE_CONDITION   : '@class = "_moz-first-line-pseud"',
 
-	ATTR_INIT_CUE         : '_moz-textshadow-init-cue',
+ 
+	ATTR_INIT_CUE         : '_moz-textshadow-init-cue', 
 	ATTR_INIT_TIMER       : '_moz-textshadow-init-timer',
 	ATTR_DRAW_CUE         : '_moz-textshadow-draw-cue',
 	ATTR_DRAW_TIMER       : '_moz-textshadow-draw-timer',
@@ -38,7 +41,7 @@ var TextShadowService = {
 	ATTR_CACHE            : '_moz-textshadow',
 	ATTR_DONE             : '_moz-textshadow-done',
 	ATTR_LAST_WIDTH      : '_moz-textshadow-last-width',
-	 
+  
 /* Utilities */ 
 	 
 	get browser() 
@@ -83,6 +86,20 @@ var TextShadowService = {
 		return nodes;
 	},
  
+	getJSValueFromAttribute : function(aElement, aAttribute) 
+	{
+		var value;
+		try {
+			var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
+			value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
+		}
+		catch(e) {
+		}
+		return value;
+	},
+  
+/* CSS3 selector support */ 
+	 
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
 		var nodes = [];
@@ -91,7 +108,6 @@ var TextShadowService = {
 		if (!aSelector) return nodes;
 
 		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument, aSpecificity);
-//dump('\n'+aSelector+'\n'+expressions.join('\n')+'\n');
 		if (!expression.length) return nodes;
 
 		if (aSpecificity) {
@@ -115,7 +131,7 @@ var TextShadowService = {
 		}
 		return nodes;
 	},
-	
+ 
 	convertSelectorToXPath : function(aSelector, aTargetDocument, aSpecificity, aInNotPseudClass) 
 	{
 		var makeOneExpression = false;
@@ -695,20 +711,8 @@ var TextShadowService = {
 		return makeOneExpression ? expressions.join(' | ') : expressions ;
 	},
   
-	getJSValueFromAttribute : function(aElement, aAttribute) 
-	{
-		var value;
-		try {
-			var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
-			value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
-		}
-		catch(e) {
-		}
-		return value;
-	},
-  
 /* draw shadow */ 
-	 
+	
 	drawShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
@@ -770,7 +774,7 @@ var TextShadowService = {
 		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 		this.startDraw(d.defaultView);
 	},
-	 
+	
 	startDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -785,7 +789,7 @@ var TextShadowService = {
 		timerId = aFrame.setTimeout(this.delayedDraw, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
-	 
+	
 	delayedDraw : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -828,7 +832,7 @@ var TextShadowService = {
 		var timerId = aFrame.setTimeout(aSelf.delayedDraw, 0, aSelf, aFrame);
 		node.setAttribute(aSelf.ATTR_DRAW_TIMER, timerId);
 	},
- 	 
+  
 	initShadowBox : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
@@ -1105,7 +1109,7 @@ var TextShadowService = {
 			this.clearOneShadow(boxes.snapshotItem(i));
 		}
 	},
-	 
+	
 	clearOneShadow : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
@@ -1363,7 +1367,7 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-	 
+	
 	textShadowMayExists : function(aStyle) 
 	{
 		const IOService = Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService);
@@ -1512,7 +1516,7 @@ var TextShadowService = {
 	},
   
 /* Initializing */ 
-	 
+	
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
@@ -1653,7 +1657,7 @@ var TextShadowService = {
 	},
    
 /* Event Handling */ 
-	 
+	
 	handleEvent : function(aEvent) 
 	{
 		switch (aEvent.type)

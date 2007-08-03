@@ -6,7 +6,8 @@ p.test2:first-letter,
 li[testAttr="hoge"],
 li[testAttr~="bar"],
 li[lang|="en"],
-li:first-child > :link {
+li:first-child > :link,
+p.only-child {
 	text-shadow: 2px 2px 3pt red !important;
 	color: red;
 }
@@ -24,6 +25,7 @@ ul.test li+li {
 :root {
 	text-shadow: 2px 2px 2px gray;
 }
+
 
 </style>
 
@@ -44,6 +46,8 @@ ul.test li+li {
 <p class="test1">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
 
 <p class="test2">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+<p class="only-child"><em style="font-weight: bold;">強調強調強調強調強調強調</em></p>
 
 <p>段落<em>強調</em>段落<em>強調</em>段落</p>
 

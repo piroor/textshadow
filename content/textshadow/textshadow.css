@@ -1,8 +1,10 @@
 @namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
 @namespace html url("http://www.w3.org/1999/xhtml");
+
 *|*._moz-textshadow-box {
 	-moz-binding: url(chrome://textshadow/content/textshadow.xml#textshadow-box) !important;
 }
+
 *|*._moz-textshadow-box,
 *|*._moz-first-line-pseud,
 *|*._moz-first-letter-pseud {
@@ -79,3 +81,19 @@
 	font-weight: inherit !important;
 	text-transform: inherit !important;
 }
+
+*|*[_moz-textshadow-hover]:not(:hover) *|_moz-textshadow-shadow[type="hover"],
+*|*[_moz-textshadow-hover]:not(:hover) *|_MOZ-TEXTSHADOW-SHADOW[type="hover"],
+*|*[_moz-textshadow-active]:not(:active) *|_moz-textshadow-shadow[type="active"],
+*|*[_moz-textshadow-active]:not(:active) *|_MOZ-TEXTSHADOW-SHADOW[type="active"],
+*|*[_moz-textshadow-focus]:not(:focus) *|_moz-textshadow-shadow[type="focus"],
+*|*[_moz-textshadow-focus]:not(:focus) *|_MOZ-TEXTSHADOW-SHADOW[type="focus"],
+*|*[_moz-textshadow-hover]:hover *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-textshadow-hover]:hover *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
+*|*[_moz-textshadow-active]:active *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-textshadow-active]:active *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
+*|*[_moz-textshadow-focus]:focus *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-textshadow-focus]:focus *|_MOZ-TEXTSHADOW-SHADOW:not([type]) {
+	display: none;
+}
+

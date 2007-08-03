@@ -22,6 +22,8 @@ var TextShadowService = {
 
 	SHADOW_CONTAINER      : '_moz-textshadow-shadow',
 	SHADOW_PART           : '_moz-textshadow-shadow-part',
+
+	DUMMY                 : '_moz-textshadow-dummy-box',
  
 	FIRSTLETTER           : 'span', 
 	FIRSTLETTER_CLASS     : '_moz-first-letter-pseud',
@@ -258,7 +260,7 @@ var TextShadowService = {
 			var first = d.createElement(self.FIRSTLINE);
 			first.setAttribute('class', self.FIRSTLINE_CLASS);
 
-			var dummy = d.createElement('_moz-dummy-box');
+			var dummy = d.createElement(self.DUMMY);
 			var dummy1 = dummy.cloneNode(true);
 			var dummy2 = dummy.cloneNode(true);
 			var range = d.createRange();
@@ -856,12 +858,28 @@ var TextShadowService = {
 			+ 'left: 0 !important;'
 		);
 
+
 		var nodes = aNode.childNodes;
 		var f = d.createDocumentFragment();
 		for (var i = 0, maxi = nodes.length; i < maxi; i++)
 		{
 			f.appendChild(nodes[i].cloneNode(true));
 		}
+
+		/*
+			font-weightがboldだと、BoxObjectの幅と実際の幅が
+			一致しなくなることがある（Gecko 1.8のバグ？）。
+			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
+			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
+		*/
+		var offsetAnchor1, offsetAnchor2;
+		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
+			offsetAnchor1 = d.createElement(this.DUMMY);
+			offsetAnchor2 = offsetAnchor1.cloneNode(true);
+			f.appendChild(offsetAnchor1);
+			aNode.appendChild(offsetAnchor2);
+		}
+
 		innerContents[0].appendChild(f);
 
 
@@ -871,7 +889,10 @@ var TextShadowService = {
 		var context = w.getComputedStyle(aNode.parentNode, null).getPropertyValue('display');
 		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? aNode.parentNode : aNode );
 		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]', aNode).snapshotLength;
-		if (context != 'inline' && hasSiblingNodes)
+		if (
+			context != 'none' &&
+			(context.indexOf('table-') == 0 || hasSiblingNodes)
+			)
 			context = 'inline';
 
 		var info      = this.getSizeBox(context == 'inline' ? aNode : aNode.parentNode );
@@ -895,7 +916,7 @@ var TextShadowService = {
 			default:
 				if (this.positionQuality < 1) break;
 
-				var dummy1 = d.createElement('_moz-textbox-dummy-box');
+				var dummy1 = d.createElement(this.DUMMY);
 				dummy1.appendChild(d.createTextNode('!'));
 				var dummy2 = dummy1.cloneNode(true);
 				dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
@@ -921,8 +942,7 @@ var TextShadowService = {
 
 		var renderingStyle = 'position: absolute !important; display: block !important;'
 			+ 'margin: 0 !important; padding: 0 !important;'
-			+ 'text-indent: '+info.indent+'px !important;'
-			+ 'width: ' + info.width + 'px !important;';
+			+ 'text-indent: '+info.indent+'px !important;';
 
 		innerContents[1].setAttribute('style',
 			renderingStyle
@@ -933,10 +953,24 @@ var TextShadowService = {
 			+ 'right: ' + (-xOffset) + 'px !important;'
 		);
 
+		innerContents[1].style.width = info.width+'px';
+
+		if (offsetAnchor1) {
+			var y = d.getBoxObjectFor(offsetAnchor1).screenY;
+			while (d.getBoxObjectFor(offsetAnchor2).screenY != y)
+			{
+				info.width++;
+				innerContents[1].style.width = info.width+'px';
+			} 
+			innerContents[0].removeChild(offsetAnchor1);
+			aNode.removeChild(offsetAnchor2);
+		}
+
 		innerBox.setAttribute('rendering-style', renderingStyle);
 		innerBox.setAttribute('x-offset',        xOffset);
 		innerBox.setAttribute('y-offset',        yOffset);
 		innerBox.setAttribute('context',         context);
+		innerBox.setAttribute('width',           info.width);
 		innerBox.setAttribute('box-width',       info.boxWidth);
 		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
@@ -954,6 +988,7 @@ var TextShadowService = {
 		var innerBox = d.getAnonymousNodes(aNode)[0];
 		if (!innerBox.hasAttribute('initialized')) this.initShadowBox(aNode);
 
+		var width     = parseInt(innerBox.getAttribute('width'));
 		var boxWidth  = parseInt(innerBox.getAttribute('box-width'));
 		var boxHeight = parseInt(innerBox.getAttribute('box-height'));
 
@@ -981,6 +1016,7 @@ var TextShadowService = {
 		var shadows = d.createElement(this.SHADOW_CONTAINER);
 		shadows.setAttribute('style',
 			innerBox.getAttribute('rendering-style')
+			+ 'width: '+width+'px !important;'
 			+ 'z-index: 1 !important;'
 			+ 'top: ' + (yOffset+y-(radius / 2)) + 'px !important;'
 			+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
@@ -1033,16 +1069,11 @@ var TextShadowService = {
 		}
 		if (box == d) box = d.documentElement;
 
-		// font-weightがboldの時、何故かボックスの中身があふれて折り返されてしまう。
-		// 試してみた限りでは、幅を1ピクセル増やしてやると折り返されなくなるので、
-		// とりあえず急場しのぎということで……
-		var weight = this.getComputedPixels(aNode, 'font-weight');
-
 		return {
 			sizeBox   : box,
 			display   : display,
 			indent    : this.getComputedPixels(box, 'text-indent'),
-			width     : d.getBoxObjectFor(aNode).width + (weight > 400 ? 1 : 0 ),
+			width     : d.getBoxObjectFor(aNode).width,
 			height    : d.getBoxObjectFor(aNode).height,
 			boxWidth  : d.getBoxObjectFor(box).width
 				- this.getComputedPixels(box, 'padding-left')

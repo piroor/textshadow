@@ -1,7 +1,8 @@
 <style type="text/css">
-p.test1:first-line {
-	text-shadow: 2px 2px 2mm red;
+p > em {
+	text-shadow: 2px 2px 2mm orange;
 }
+p.test1:first-line,
 p.test2:first-letter,
 li[testAttr="hoge"],
 li[testAttr~="bar"],
@@ -29,54 +30,9 @@ ul.test li+li {
 
 </style>
 
-<p><button id="test-button">SELECTOR TEST</button></p>
+<div>
 
-<ul>
-	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">段落まるごとのtext-shadow</a></li>
-	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
-	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line疑似要素</a></li>
-	<li><a href="http://taken.s101.xrea.com/blog/index.php">大量の影</a></li>
-	<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=10713">Implement CSS2/3 text-shadow property</a></li>
-</ul>
-
-
-<p style="padding-left: 2em;">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em style="text-shadow: 2px 2px red">折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
-
-<p style="padding-left: 2em; text-align: center;">中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト中寄せテキスト<em>折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
-
-<p style="padding-left: 2em; text-align: right;">右寄せテキスト右寄せテキスト右寄せテキスト右寄せテキスト右寄せテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト<em>折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素折り返されたインライン要素</em>長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
-
-
-<p class="test1">長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
-
-<p class="test2">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
-
-<p class="only-child"><em style="font-weight: bold;">強調強調強調強調強調強調</em></p>
-
-<p>段落<em>強調</em>段落<em>強調</em>段落</p>
-
-<p>段落<em>強調</em>段落</p>
-
-<p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
-
-<ul>
-	<li><input type="checkbox" checked="true" />checked</li>
-	<li><input type="checkbox" checked>checked</li>
-	<li><input type="checkbox">not checked</li>
-	<li><input type="radio" checked="true" />checked</li>
-	<li><input type="radio" checked>checked</li>
-	<li><input type="radio">not checked</li>
-	<li><input type="text" size="10" value="hogehogehoge" /></li>
-</ul>
-
-<ul class="test">
-	<li>項目</li>
-	<li>項目</li>
-	<li testAttr="hoge">項目：赤</li>
-	<li testAttr="foo bar hogehoge">項目：赤</li>
-	<li lang="en-US">項目：赤</li>
-	<li>項目</li>
-</ul>
+<p><button id="test-button">SELECTOR TEST</button>：入力したセレクタにマッチするブロックに赤い枠を表示します。</p>
 <script type="text/javascript" src="selector.js.txt"></script>
 <script type="text/javascript"><!--
 
@@ -88,5 +44,69 @@ document.getElementById('test-button').addEventListener('click', function() {
 
 //--></script>
 
+<ul>
+	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">段落まるごとのtext-shadow</a></li>
+	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
+	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line疑似要素</a></li>
+	<li><a href="http://taken.s101.xrea.com/blog/index.php">大量の影</a></li>
+	<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=10713">Implement CSS2/3 text-shadow property</a></li>
+</ul>
 
-<p class="test3">「長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト長いテキスト</p>
+
+<p style="padding-left: 2em; max-width: 42em;">長い文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 42em; text-align: center;">中央寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 42em; text-align: right;">右寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 42em; text-align: justify;">両端揃えの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+
+
+
+<p style="padding-left: 2em; max-width: 42em;">長い文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 35em; text-align: center;">中央寄せの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、途中で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 35em; text-align: justify;">両端揃えの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、途中で折り返されます。</p>
+
+
+
+
+<p class="test1" style="max-width: 45em;">:first-line疑似要素のテスト。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。</p>
+
+<p class="test2" style="max-width: 45em;">「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。</p>
+
+<p class="only-child"><em style="font-weight: bold;">強調強調強調強調強調強調</em></p>
+
+<p>段落<em>直下の強調</em>段落<span><em>span内の強調</em></span>段落</p>
+
+<p>段落<em style="text-shadow:2px 2px 4px green;">インラインでのスタイル指定が優先され、緑色の影になります。</em>段落</p>
+<p>段落<em style="text-shadow:2px 2px 4px inherit !important;">インラインでのスタイル指定が優先され、親の影と同じ色の影になります。</em>段落</p>
+
+<p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
+
+<ul class="test">
+	<li><input type="checkbox" checked="true" />checked</li>
+	<li><input type="checkbox" checked>checked</li>
+	<li><input type="checkbox">not checked</li>
+	<li><input type="radio" checked="true" />checked</li>
+	<li><input type="radio" checked>checked</li>
+	<li><input type="radio">not checked</li>
+	<li><input type="text" size="10" value="hogehogehoge" /></li>
+</ul>
+
+<ul class="test">
+	<li>項目</li>
+	<li>項目：青</li>
+	<li testAttr="hoge">項目：赤</li>
+	<li testAttr="foo bar hogehoge">項目：赤</li>
+	<li lang="en-US">項目：赤</li>
+	<li>項目：青</li>
+</ul>
+
+
+<p class="test3">最後のp要素。:last-child疑似クラスにより、青い影が付きます。</p>
+
+</div>

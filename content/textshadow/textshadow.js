@@ -941,14 +941,14 @@ var TextShadowService = {
 		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
 
 		if (parentBox == aNode.parentNode && !hasSiblingNodes) {
-			if (align != 'start')
+			if (align != 'left' && align != 'start')
 				xOffset -= d.getBoxObjectFor(aNode).screenX - d.getBoxObjectFor(parentBox).screenX;
 			else
 				xOffset -= info.indent;
 		}
 
 		if (
-			align != 'start' &&
+			align != 'left' && align != 'start' &&
 			(
 				this.getNodesByXPath(hasFollowingExpression, aNode).snapshotLength ||
 				(
@@ -957,7 +957,7 @@ var TextShadowService = {
 				)
 			)
 			)
-			renderingStyle += 'text-align: start !important;';
+			renderingStyle += 'text-align: '+(align == 'end' ? 'start' : 'left' )+' !important;';
 
 
 		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')

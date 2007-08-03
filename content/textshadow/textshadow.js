@@ -841,14 +841,16 @@ var TextShadowService = {
 		var innerBox = d.getAnonymousNodes(aNode)[0];
 		if (innerBox.hasAttribute('initialized')) return;
 
+		var innerContents = innerBox.childNodes;
+
 		innerBox.setAttribute('initialized', true);
 
-		innerBox.firstChild.setAttribute('style',
+		innerContents[0].setAttribute('style',
 			'visibility: hidden !important;'
 			+ '-moz-user-select: -moz-none !important;'
 			+ '-moz-user-focus: ignore !important;'
 		);
-		innerBox.lastChild.setAttribute('style',
+		innerContents[1].setAttribute('style',
 			'position: absolute !important;'
 			+ 'top: 0 !important;'
 			+ 'left: 0 !important;'
@@ -860,19 +862,20 @@ var TextShadowService = {
 		{
 			f.appendChild(nodes[i].cloneNode(true));
 		}
-		innerBox.firstChild.appendChild(f);
+		innerContents[0].appendChild(f);
 
 
 		var xOffset   = 0;
 		var yOffset   = 0;
-		var info      = this.getSizeBox(aNode);
-		var parentBox = info.sizeBox;
 
 		var context = w.getComputedStyle(aNode.parentNode, null).getPropertyValue('display');
 		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? aNode.parentNode : aNode );
-		var hasPreviousNode = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()', aNode).snapshotLength;
-		if (context != 'inline' && hasPreviousNode)
+		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]', aNode).snapshotLength;
+		if (context != 'inline' && hasSiblingNodes)
 			context = 'inline';
+
+		var info      = this.getSizeBox(context == 'inline' ? aNode : aNode.parentNode );
+		var parentBox = info.sizeBox;
 
 		switch (context)
 		{
@@ -908,10 +911,10 @@ var TextShadowService = {
 				break;
 		}
 
-		if (parentBox == aNode.parentNode && !hasPreviousNode)
+		if (parentBox == aNode.parentNode && !hasSiblingNodes)
 			xOffset -= info.indent;
 
-		if (window.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
+		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
 			yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
 		info.width = Math.min(info.width, info.boxWidth);
@@ -921,7 +924,7 @@ var TextShadowService = {
 			+ 'text-indent: '+info.indent+'px !important;'
 			+ 'width: ' + info.width + 'px !important;';
 
-		innerBox.lastChild.setAttribute('style',
+		innerContents[1].setAttribute('style',
 			renderingStyle
 			+ 'z-index: 2 !important;'
 			+ 'top: ' + yOffset + 'px !important;'
@@ -933,6 +936,7 @@ var TextShadowService = {
 		innerBox.setAttribute('rendering-style', renderingStyle);
 		innerBox.setAttribute('x-offset',        xOffset);
 		innerBox.setAttribute('y-offset',        yOffset);
+		innerBox.setAttribute('context',         context);
 		innerBox.setAttribute('box-width',       info.boxWidth);
 		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
@@ -1028,15 +1032,21 @@ var TextShadowService = {
 			box = box.parentNode;
 		}
 		if (box == d) box = d.documentElement;
+
+		// font-weightがboldの時、何故かボックスの中身があふれて折り返されてしまう。
+		// 試してみた限りでは、幅を1ピクセル増やしてやると折り返されなくなるので、
+		// とりあえず急場しのぎということで……
+		var weight = this.getComputedPixels(aNode, 'font-weight');
+
 		return {
 			sizeBox   : box,
 			display   : display,
 			indent    : this.getComputedPixels(box, 'text-indent'),
-			width     : d.getBoxObjectFor(aNode).width,
+			width     : d.getBoxObjectFor(aNode).width + (weight > 400 ? 1 : 0 ),
 			height    : d.getBoxObjectFor(aNode).height,
 			boxWidth  : d.getBoxObjectFor(box).width
-					- this.getComputedPixels(box, 'padding-left')
-					- this.getComputedPixels(box, 'padding-right'),
+				- this.getComputedPixels(box, 'padding-left')
+				- this.getComputedPixels(box, 'padding-right'),
 			boxHeight : d.getBoxObjectFor(box).height
 				- this.getComputedPixels(box, 'padding-top')
 				- this.getComputedPixels(box, 'padding-bottom')
@@ -1048,7 +1058,31 @@ var TextShadowService = {
 		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
 
 		// line-height
-		if (value.toLowerCase() == 'normal') return this.getComputedPixels(aNode, 'font-size') * 1.2;
+		switch (aProperty.toLowerCase())
+		{
+			case 'line-height':
+				if (value.toLowerCase() == 'normal')
+					return this.getComputedPixels(aNode, 'font-size') * 1.2;
+				break;
+
+			case 'font-weight':
+				switch (value.toLowerCase())
+				{
+					case 'normal':  return 400;
+					case 'bold':    return 700;
+					case 'bolder':
+						return !aNode.parentNode ? 500 : Math.max(
+							900,
+							this.getComputedPixels(aNode.parentNode, 'font-weight')+100
+						);
+					case 'lighter':
+						return !aNode.parentNode ? 300 : Math.min(
+							100,
+							this.getComputedPixels(aNode.parentNode, 'font-weight')-100
+						);
+				}
+				break;
+		}
 
 		return Number(value.match(/^[-0-9\.]+/));
 	},

@@ -60,3 +60,22 @@
 	word-spacing: inherit !important;
 	z-index: auto !important;
 }
+
+*|_moz-textshadow-inner-box,
+*|_moz-textshadow-base,
+*|_moz-textshadow-original,
+*|_moz-textshadow-shadow,
+*|_moz-textshadow-shadow-part,
+*|_MOZ-TEXTSHADOW-INNER-BOX,
+*|_MOZ-TEXTSHADOW-BASE,
+*|_MOZ-TEXTSHADOW-ORIGINAL,
+*|_MOZ-TEXTSHADOW-SHADOW,
+*|_MOZ-TEXTSHADOW-SHADOW-PART {
+	font-family: inherit !important;
+	font-style: inherit !important;
+	font-size-adjust: inherit !important;
+	font-stretch: inherit !important;
+	font-variant: inherit !important;
+	font-weight: inherit !important;
+	text-transform: inherit !important;
+}

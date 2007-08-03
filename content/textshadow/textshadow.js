@@ -888,7 +888,8 @@ var TextShadowService = {
 
 		var context = w.getComputedStyle(aNode.parentNode, null).getPropertyValue('display');
 		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? aNode.parentNode : aNode );
-		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]', aNode).snapshotLength;
+		var hasFollowingExpression = 'following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]';
+		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | following-sibling::* | '+hasFollowingExpression, aNode).snapshotLength;
 		if (
 			context != 'none' &&
 			(context.indexOf('table-') == 0 || hasSiblingNodes)
@@ -932,17 +933,37 @@ var TextShadowService = {
 				break;
 		}
 
-		if (parentBox == aNode.parentNode && !hasSiblingNodes)
-			xOffset -= info.indent;
+		var renderingStyle = 'position: absolute !important; display: block !important;'
+			+ 'margin: 0 !important; padding: 0 !important;'
+			+ 'text-indent: '+info.indent+'px !important;';
+
+
+		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
+
+		if (parentBox == aNode.parentNode && !hasSiblingNodes) {
+			if (align != 'start')
+				xOffset -= d.getBoxObjectFor(aNode).screenX - d.getBoxObjectFor(parentBox).screenX;
+			else
+				xOffset -= info.indent;
+		}
+
+		if (
+			align != 'start' &&
+			(
+				this.getNodesByXPath(hasFollowingExpression, aNode).snapshotLength ||
+				(
+					parentBox != aNode.parentNode &&
+					this.getNodesByXPath(hasFollowingExpression, aNode.parentNode).snapshotLength
+				)
+			)
+			)
+			renderingStyle += 'text-align: start !important;';
+
 
 		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
 			yOffset += this.getComputedPixels(parentBox, 'margin-top');
 
 		info.width = Math.min(info.width, info.boxWidth);
-
-		var renderingStyle = 'position: absolute !important; display: block !important;'
-			+ 'margin: 0 !important; padding: 0 !important;'
-			+ 'text-indent: '+info.indent+'px !important;';
 
 		innerContents[1].setAttribute('style',
 			renderingStyle
@@ -956,8 +977,17 @@ var TextShadowService = {
 		innerContents[1].style.width = info.width+'px';
 
 		if (offsetAnchor1) {
+			var origBox = d.getBoxObjectFor(innerContents[0]);
+			var baseBox = d.getBoxObjectFor(innerContents[1]);
+			var dy = origBox.screenY - baseBox.screenY;
 			var y = d.getBoxObjectFor(offsetAnchor1).screenY;
-			while (d.getBoxObjectFor(offsetAnchor2).screenY != y)
+			var lh = this.getComputedPixels(innerContents[0], 'line-height');
+			var c = 0;
+			while (
+				c < 100 &&
+				d.getBoxObjectFor(offsetAnchor2).screenY - y >= lh &&
+				d.getBoxObjectFor(offsetAnchor2).screenY + dy - y >= lh
+				)
 			{
 				info.width++;
 				innerContents[1].style.width = info.width+'px';

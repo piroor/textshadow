@@ -869,9 +869,17 @@ var TextShadowService = {
 		f.appendChild(offsetAnchor1);
 		innerContents[0].appendChild(f);
 
-		var offsetAnchor2 = offsetAnchor1.cloneNode(true);
-		aNode.appendChild(offsetAnchor2);
-
+		/*
+			font-weightがboldだと、BoxObjectの幅と実際の幅が
+			一致しなくなることがある（Gecko 1.8のバグ？）。
+			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
+			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
+		*/
+		var offsetAnchor2;
+		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
+			offsetAnchor2 = offsetAnchor1.cloneNode(true);
+			aNode.appendChild(offsetAnchor2);
+		}
 
 
 		var xOffset   = 0;
@@ -963,13 +971,7 @@ var TextShadowService = {
 		var lastLineY = d.getBoxObjectFor(offsetAnchor1).screenY;
 		var origBox   = d.getBoxObjectFor(innerContents[0]);
 
-		/*
-			font-weightがboldだと、BoxObjectの幅と実際の幅が
-			一致しなくなることがある（Gecko 1.8のバグ？）。
-			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
-			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
-		*/
-		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
+		if (offsetAnchor2) {
 			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
 			var c = 0;
 			while (
@@ -980,16 +982,17 @@ var TextShadowService = {
 			{
 				width++;
 				innerContents[1].style.width = width+'px !important';
-			} 
+			}
+			aNode.removeChild(offsetAnchor2);
 		}
 
 
 		if (align != 'left' && align != 'start' && align != 'justify') {
-			// 左寄せ以外で且つ最終行でない場合は、左寄せにする。
+			var newAlign = (align == 'end' ? 'start' : 'left' );
 			if (info.boxY + info.boxHeight > d.getBoxObjectFor(offsetAnchor1).screenY + lineHeight) {
-				align = (align == 'end' ? 'start' : 'left' );
-				renderingStyle += 'text-align: '+align+' !important;';
-				innerContents[1].style.textAlign = align;
+				// 左寄せ以外で且つ最終行でない場合は、左寄せにする。
+				renderingStyle += 'text-align: '+newAlign+' !important;';
+				innerContents[1].style.textAlign = newAlign+' !important';
 			}
 			else if (
 				lastLineY - origBox.screenY >= lineHeight &&
@@ -1000,22 +1003,38 @@ var TextShadowService = {
 						this.getNodesByXPath(hasFollowingExpression , aNode.parentNode).snapshotLength
 					)
 				)
-				) { // 左寄せ以外で行の最後のノードでなく、且つ最終行に渡る折り返しがある場合は、幅とXの位置を調整する。
-/*				var offset = info.width % info.boxWidth;
-				offset = 
-				width  -= offset;
-//				info.indent -= offset;
-				innerContents[1].style.left  = xOffset+'px !important';
-				innerContents[1].style.right = (-xOffset)+'px !important';
-				xOffset += offset;
-				innerContents[1].style.width = width+'px !important';
-//				innerContents[1].style.textIndent = info.indent+'px !important';
-*/			}
+				) {
+				renderingStyle += 'text-align: '+newAlign+' !important;';
+				if (lastLineY - origBox.screenY <= lineHeight * 2) {
+					// 左寄せ以外で行の最後のノードでなく、且つ最終行に渡る
+					// 折り返しが1回だけある場合は、幅とXの位置を調整する。
+					var firstLine = (info.boxX + info.boxWidth - info.x);
+					var endX      = d.getBoxObjectFor(offsetAnchor1).screenX;
+					var offset    = endX - info.boxX - info.width;
+					width         = info.boxWidth - offset;
+					info.indent   = width - firstLine;
+					xOffset       = -(info.x - info.boxX - offset);
+					innerContents[1].setAttribute('style',
+						renderingStyle
+						+ 'width: '+width+'px !important;'
+						+ 'text-indent: '+info.indent+'px !important;'
+						+ 'z-index: 2 !important;'
+						+ 'top: ' + yOffset + 'px !important;'
+						+ 'bottom: ' + (-yOffset) + 'px !important;'
+						+ 'left: ' + xOffset + 'px !important;'
+						+ 'right: ' + (-xOffset) + 'px !important;'
+					);
+				}
+				else {
+					// 2回以上折り返されている場合、最後の行の行頭だけをずらす方法が
+					// 存在しないので、せめて文字が重ならないように左寄せにしておく。
+					innerContents[1].style.textAlign = newAlign+' !important';
+				}
+			}
 		}
 
 
 		innerContents[0].removeChild(offsetAnchor1);
-		aNode.removeChild(offsetAnchor2);
 
 		innerBox.setAttribute('rendering-style', renderingStyle);
 		innerBox.setAttribute('x-offset',        xOffset);

@@ -899,6 +899,7 @@ var TextShadowService = {
 		var parentBox  = info.sizeBox;
 		var lineHeight = this.getComputedPixels(innerContents[0], 'line-height');
 		var width      = info.width;
+		var indent     = info.indent;
 
 		switch (context)
 		{
@@ -910,7 +911,7 @@ var TextShadowService = {
 				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
 					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
 					xOffset -= delta;
-					info.indent += delta;
+					indent += delta;
 					width = info.boxWidth;
 				}
 				break;
@@ -939,14 +940,14 @@ var TextShadowService = {
 			+ 'padding: 0 !important;';
 
 
-		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
 
-		// ブロック要素の唯一の子である場合
+		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
 		if (parentBox == aNode.parentNode && !hasSiblingNodes) {
-			if (align != 'left' && align != 'start' && align != 'justify')
-				xOffset -= d.getBoxObjectFor(aNode).screenX - d.getBoxObjectFor(parentBox).screenX;
-			else
-				xOffset -= info.indent;
+			xOffset -= indent;
+		}
+		else if (info.indent) { // そうでなければ、インデントを無効にする
+			indent -= info.indent;
+//			xOffset -= d.getBoxObjectFor(aNode).screenX - d.getBoxObjectFor(parentBox).screenX;
 		}
 
 
@@ -957,7 +958,7 @@ var TextShadowService = {
 
 		innerContents[1].setAttribute('style',
 			renderingStyle
-			+ 'text-indent: '+info.indent+'px !important;'
+			+ 'text-indent: '+indent+'px !important;'
 			+ 'z-index: 2 !important;'
 			+ 'top: ' + yOffset + 'px !important;'
 			+ 'bottom: ' + (-yOffset) + 'px !important;'
@@ -970,7 +971,6 @@ var TextShadowService = {
 
 		var lastLineY = d.getBoxObjectFor(offsetAnchor1).screenY;
 		var origBox   = d.getBoxObjectFor(innerContents[0]);
-
 		if (offsetAnchor2) {
 			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
 			var c = 0;
@@ -987,7 +987,9 @@ var TextShadowService = {
 		}
 
 
+		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
 		if (align != 'left' && align != 'start' && align != 'justify') {
+			origBox   = d.getBoxObjectFor(innerContents[0]);
 			var newAlign = (align == 'end' ? 'start' : 'left' );
 			if (info.boxY + info.boxHeight > d.getBoxObjectFor(offsetAnchor1).screenY + lineHeight) {
 				// 左寄せ以外で且つ最終行でない場合は、左寄せにする。
@@ -1012,12 +1014,12 @@ var TextShadowService = {
 					var endX      = d.getBoxObjectFor(offsetAnchor1).screenX;
 					var offset    = endX - info.boxX - info.width;
 					width         = info.boxWidth - offset;
-					info.indent   = width - firstLine;
+					indent        = width - firstLine;
 					xOffset       = -(info.x - info.boxX - offset);
 					innerContents[1].setAttribute('style',
 						renderingStyle
 						+ 'width: '+width+'px !important;'
-						+ 'text-indent: '+info.indent+'px !important;'
+						+ 'text-indent: '+indent+'px !important;'
 						+ 'z-index: 2 !important;'
 						+ 'top: ' + yOffset + 'px !important;'
 						+ 'bottom: ' + (-yOffset) + 'px !important;'
@@ -1040,7 +1042,7 @@ var TextShadowService = {
 		innerBox.setAttribute('x-offset',        xOffset);
 		innerBox.setAttribute('y-offset',        yOffset);
 		innerBox.setAttribute('context',         context);
-		innerBox.setAttribute('indent',          info.indent);
+		innerBox.setAttribute('indent',          indent);
 		innerBox.setAttribute('width',           width);
 		innerBox.setAttribute('box-width',       info.boxWidth);
 		innerBox.setAttribute('box-height',      info.boxHeight);

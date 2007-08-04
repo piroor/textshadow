@@ -49,13 +49,14 @@ document.getElementById('test-button').addEventListener('click', function() {
 	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
 	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line疑似要素</a></li>
 	<li><a href="http://taken.s101.xrea.com/blog/index.php">大量の影</a></li>
+	<li><a href="http://d.hatena.ne.jp/saiton/">右寄せテキストの影など</a></li>
 	<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=10713">Implement CSS2/3 text-shadow property</a></li>
 </ul>
 
 
-<p style="padding-left: 2em; max-width: 42em;">長い文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 42em; text-indent:2em;">長い文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
-<p style="padding-left: 2em; max-width: 42em; text-align: center;">中央寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 42em; text-indent:2em; text-align: center;">中央寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
 <p style="padding-left: 2em; max-width: 42em; text-align: right;">右寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
@@ -68,8 +69,10 @@ document.getElementById('test-button').addEventListener('click', function() {
 <p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
 
 
-<p style="padding-left: 2em; max-width: 35em; text-align: center;">中央寄せの文の折り返しのテスト。<em>あるインライン要素。</em>後続する短い文。<em>2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">中央寄せの文の折り返しのテスト。<em>あるインライン要素。</em>後続する短い文。<em>2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
 <p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。<em>あるインライン要素。</em>後続する短い文。<em>2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">中央寄せの文の折り返しのテスト。あるインライン要素。後続する短い文。2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。この文も長いので、途中で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。あるインライン要素。後続する短い文。2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。この文も長いので、途中で折り返されます。</p>
 
 
 

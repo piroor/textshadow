@@ -859,8 +859,10 @@ var TextShadowService = {
 			+ 'left: 0 !important;'
 		);
 
-		var originalAnchor = innerContents[0].lastChild;
-		var baseAnchor     = innerContents[1].lastChild;
+		var originalAnchor    = innerContents[0].lastChild;
+		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
+		var baseAnchor        = innerContents[1].lastChild;
+		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
 
 		var nodes = aNode.childNodes;
 		var f = d.createDocumentFragment();
@@ -887,6 +889,7 @@ var TextShadowService = {
 		var info       = this.getSizeBox(context == 'inline' ? aNode : p );
 		var parentBox  = info.sizeBox;
 		var lineHeight = this.getComputedPixels(innerContents[0], 'line-height');
+		var fontSize   = this.getComputedPixels(aNode, 'font-size');
 		var width      = info.width;
 		var indent     = info.indent;
 
@@ -895,7 +898,7 @@ var TextShadowService = {
 			case 'none':
 				return;
 			case 'inline':
-				yOffset -= Math.round((lineHeight - this.getComputedPixels(p, 'font-size')) / 2);
+				yOffset -= Math.round((lineHeight - fontSize) / 2);
 				var parentBoxObject = d.getBoxObjectFor(parentBox);
 				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
 					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
@@ -960,14 +963,13 @@ var TextShadowService = {
 			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
 			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
 		*/
-		var lastLineY = d.getBoxObjectFor(originalAnchor).screenY;
+		var lastLineY = originalAnchorBox.screenY;
 		var origBox   = d.getBoxObjectFor(innerContents[0]);
-		var anchorBox = d.getBoxObjectFor(baseAnchor);
 		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
 			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
 			while (
-				anchorBox.screenY - lastLineY >= lineHeight &&
-				anchorBox.screenY + dy - lastLineY >= lineHeight
+				baseAnchorBox.screenY - lastLineY >= lineHeight &&
+				baseAnchorBox.screenY + dy - lastLineY >= lineHeight
 				)
 			{
 				width++;
@@ -988,10 +990,17 @@ var TextShadowService = {
 				)
 			)
 			) {
-			endOffset = info.boxX + info.boxWidth - d.getBoxObjectFor(originalAnchor).screenX;
+			var x = originalAnchorBox.screenX;
+			endOffset = info.boxX + info.boxWidth - x;
 			baseAnchor.style.paddingRight = endOffset+'px !important';
-			// text-align:centerの時、要素の右端からの距離をパディングにすると、位置がずれてしまう。
-//			style.textAlign = 'right !important;';
+			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
+			{
+				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+			}
+			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
+			{
+				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+			}
 		}
 
 		innerBox.setAttribute('rendering-style', renderingStyle);
@@ -1062,12 +1071,15 @@ var TextShadowService = {
 
 		var anchor;
 		var endOffset = innerBox.getAttribute('end-offset');
-//		var align = '';
 		if (endOffset != '0') {
 			anchor = d.createElement(this.DUMMY);
 			anchor.setAttribute('style', 'padding-right: '+endOffset+'px !important;');
-//			align = 'text-align: right !important;'
 		}
+
+		var baseStyle =
+			'position: absolute !important; display: block !important;'
+			+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
+			+ 'opacity: ' + opacity + ' !important;';
 
 		for (var i = 0, maxi = radius; i < maxi; i++)
 		{
@@ -1082,14 +1094,11 @@ var TextShadowService = {
 				if (anchor) f.appendChild(anchor.cloneNode(true));
 				shadow.appendChild(f);
 				shadow.setAttribute('style',
-					'position: absolute !important; display: block !important;'
-					+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
-					+ 'opacity: ' + opacity + ' !important;'
+					baseStyle
 					+ 'top: ' + (i+gap) + 'px !important;'
 					+ 'bottom: ' + (-i-gap) + 'px !important;'
 					+ 'left: ' + (j+gap) + 'px !important;'
 					+ 'right: ' + (-j-gap) + 'px !important;'
-//					+ align
 				);
 				shadows.appendChild(shadow);
 			}

@@ -65,8 +65,8 @@
 
 *|_moz-textshadow-dummy-box,
 *|_MOZ-TEXTSHADOW-DUMMY-BOX {
-	visibility: hidden;
 	position: relative;
+	visibility: hidden;
 	z-index: -50;
 }
 
@@ -86,8 +86,9 @@
 	font-stretch: inherit !important;
 	font-variant: inherit !important;
 	font-weight: inherit !important;
-	text-transform: inherit !important;
 	letter-spacing: inherit !important;
+	text-align: inherit !important;
+	text-transform: inherit !important;
 	word-spacing: inherit !important;
 }
 

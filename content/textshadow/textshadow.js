@@ -839,6 +839,7 @@ var TextShadowService = {
 	{
 		var d = aNode.ownerDocument;
 		var w = d.defaultView;
+		var p = aNode.parentNode;
 
 		var innerBox = d.getAnonymousNodes(aNode)[0];
 		if (innerBox.hasAttribute('initialized')) return;
@@ -858,6 +859,8 @@ var TextShadowService = {
 			+ 'left: 0 !important;'
 		);
 
+		var originalAnchor = innerContents[0].lastChild;
+		var baseAnchor     = innerContents[1].lastChild;
 
 		var nodes = aNode.childNodes;
 		var f = d.createDocumentFragment();
@@ -865,28 +868,14 @@ var TextShadowService = {
 		{
 			f.appendChild(nodes[i].cloneNode(true));
 		}
-		var offsetAnchor1 = d.createElement(this.DUMMY);
-		f.appendChild(offsetAnchor1);
-		innerContents[0].appendChild(f);
-
-		/*
-			font-weightがboldだと、BoxObjectの幅と実際の幅が
-			一致しなくなることがある（Gecko 1.8のバグ？）。
-			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
-			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
-		*/
-		var offsetAnchor2;
-		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
-			offsetAnchor2 = offsetAnchor1.cloneNode(true);
-			aNode.appendChild(offsetAnchor2);
-		}
+		innerContents[0].insertBefore(f, originalAnchor);
 
 
 		var xOffset   = 0;
 		var yOffset   = 0;
 
-		var context = w.getComputedStyle(aNode.parentNode, null).getPropertyValue('display');
-		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? aNode.parentNode : aNode );
+		var context = w.getComputedStyle(p, null).getPropertyValue('display');
+		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? p : aNode );
 		var hasFollowingExpression = 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]';
 		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+hasFollowingExpression, aNode).snapshotLength;
 		if (
@@ -895,7 +884,7 @@ var TextShadowService = {
 			)
 			context = 'inline';
 
-		var info       = this.getSizeBox(context == 'inline' ? aNode : aNode.parentNode );
+		var info       = this.getSizeBox(context == 'inline' ? aNode : p );
 		var parentBox  = info.sizeBox;
 		var lineHeight = this.getComputedPixels(innerContents[0], 'line-height');
 		var width      = info.width;
@@ -906,7 +895,7 @@ var TextShadowService = {
 			case 'none':
 				return;
 			case 'inline':
-				yOffset -= Math.round((lineHeight - this.getComputedPixels(aNode.parentNode, 'font-size')) / 2);
+				yOffset -= Math.round((lineHeight - this.getComputedPixels(p, 'font-size')) / 2);
 				var parentBoxObject = d.getBoxObjectFor(parentBox);
 				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
 					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
@@ -921,8 +910,7 @@ var TextShadowService = {
 				var dummy1 = d.createElement(this.DUMMY);
 				dummy1.appendChild(d.createTextNode('!'));
 				var dummy2 = dummy1.cloneNode(true);
-				dummy1.setAttribute('style', 'visibility: hidden; position: absolute; top: 0; left: 0;');
-				dummy2.setAttribute('style', 'visibility: hidden;');
+				dummy1.setAttribute('style', 'position: absolute; top: 0; left: 0;');
 
 				var f = d.createDocumentFragment();
 				f.appendChild(dummy1);
@@ -940,9 +928,8 @@ var TextShadowService = {
 			+ 'padding: 0 !important;';
 
 
-
 		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
-		if (parentBox == aNode.parentNode && !hasSiblingNodes) {
+		if (parentBox == p && !hasSiblingNodes) {
 			xOffset -= indent;
 		}
 		else if (info.indent) { // そうでなければ、インデントを無効にする
@@ -956,91 +943,61 @@ var TextShadowService = {
 
 		width = Math.min(width, info.boxWidth);
 
-		innerContents[1].setAttribute('style',
-			renderingStyle
+		var style = innerContents[1].style;
+		style.cssText = renderingStyle
+			+ 'width: '+width+'px !important;'
 			+ 'text-indent: '+indent+'px !important;'
 			+ 'z-index: 2 !important;'
 			+ 'top: ' + yOffset + 'px !important;'
 			+ 'bottom: ' + (-yOffset) + 'px !important;'
 			+ 'left: ' + xOffset + 'px !important;'
-			+ 'right: ' + (-xOffset) + 'px !important;'
-		);
+			+ 'right: ' + (-xOffset) + 'px !important;';
 
 
-		innerContents[1].style.width = width+'px';
-
-		var lastLineY = d.getBoxObjectFor(offsetAnchor1).screenY;
+		/*
+			font-weightがboldだと、BoxObjectの幅と実際の幅が
+			一致しなくなることがある（Gecko 1.8のバグ？）。
+			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
+			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
+		*/
+		var lastLineY = d.getBoxObjectFor(originalAnchor).screenY;
 		var origBox   = d.getBoxObjectFor(innerContents[0]);
-		if (offsetAnchor2) {
+		var anchorBox = d.getBoxObjectFor(baseAnchor);
+		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
 			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
-			var c = 0;
 			while (
-				c < 100 &&
-				d.getBoxObjectFor(offsetAnchor2).screenY - lastLineY >= lineHeight &&
-				d.getBoxObjectFor(offsetAnchor2).screenY + dy - lastLineY >= lineHeight
+				anchorBox.screenY - lastLineY >= lineHeight &&
+				anchorBox.screenY + dy - lastLineY >= lineHeight
 				)
 			{
 				width++;
-				innerContents[1].style.width = width+'px !important';
+				style.width = width+'px !important';
 			}
-			aNode.removeChild(offsetAnchor2);
 		}
 
 
 		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
-		if (align != 'left' && align != 'start' && align != 'justify') {
-			origBox   = d.getBoxObjectFor(innerContents[0]);
-			var newAlign = (align == 'end' ? 'start' : 'left' );
-			if (info.boxY + info.boxHeight > d.getBoxObjectFor(offsetAnchor1).screenY + lineHeight) {
-				// 左寄せ以外で且つ最終行でない場合は、左寄せにする。
-				renderingStyle += 'text-align: '+newAlign+' !important;';
-				innerContents[1].style.textAlign = newAlign+' !important';
-			}
-			else if (
-				lastLineY - origBox.screenY >= lineHeight &&
+		var endOffset = 0;
+		if (
+			align != 'left' && align != 'start' && align != 'justify' &&
+			(
+				this.getNodesByXPath(hasFollowingExpression , aNode).snapshotLength ||
 				(
-					this.getNodesByXPath(hasFollowingExpression , aNode).snapshotLength ||
-					(
-						parentBox != aNode.parentNode &&
-						this.getNodesByXPath(hasFollowingExpression , aNode.parentNode).snapshotLength
-					)
+					parentBox != p &&
+					this.getNodesByXPath(hasFollowingExpression , p).snapshotLength
 				)
-				) {
-				renderingStyle += 'text-align: '+newAlign+' !important;';
-				if (lastLineY - origBox.screenY <= lineHeight * 2) {
-					// 左寄せ以外で行の最後のノードでなく、且つ最終行に渡る
-					// 折り返しが1回だけある場合は、幅とXの位置を調整する。
-					var firstLine = (info.boxX + info.boxWidth - info.x);
-					var endX      = d.getBoxObjectFor(offsetAnchor1).screenX;
-					var offset    = endX - info.boxX - info.width;
-					width         = info.boxWidth - offset;
-					indent        = width - firstLine;
-					xOffset       = -(info.x - info.boxX - offset);
-					innerContents[1].setAttribute('style',
-						renderingStyle
-						+ 'width: '+width+'px !important;'
-						+ 'text-indent: '+indent+'px !important;'
-						+ 'z-index: 2 !important;'
-						+ 'top: ' + yOffset + 'px !important;'
-						+ 'bottom: ' + (-yOffset) + 'px !important;'
-						+ 'left: ' + xOffset + 'px !important;'
-						+ 'right: ' + (-xOffset) + 'px !important;'
-					);
-				}
-				else {
-					// 2回以上折り返されている場合、最後の行の行頭だけをずらす方法が
-					// 存在しないので、せめて文字が重ならないように左寄せにしておく。
-					innerContents[1].style.textAlign = newAlign+' !important';
-				}
-			}
+			)
+			) {
+			endOffset = info.boxX + info.boxWidth - d.getBoxObjectFor(originalAnchor).screenX;
+			baseAnchor.style.paddingRight = endOffset+'px !important';
+			// text-align:centerの時、要素の右端からの距離をパディングにすると、位置がずれてしまう。
+//			style.textAlign = 'right !important;';
 		}
-
-
-		innerContents[0].removeChild(offsetAnchor1);
 
 		innerBox.setAttribute('rendering-style', renderingStyle);
 		innerBox.setAttribute('x-offset',        xOffset);
 		innerBox.setAttribute('y-offset',        yOffset);
+		innerBox.setAttribute('end-offset',      endOffset);
 		innerBox.setAttribute('context',         context);
 		innerBox.setAttribute('indent',          indent);
 		innerBox.setAttribute('width',           width);
@@ -1061,12 +1018,9 @@ var TextShadowService = {
 		var innerBox = d.getAnonymousNodes(aNode)[0];
 		if (!innerBox.hasAttribute('initialized')) this.initShadowBox(aNode);
 
-		var indent    = parseInt(innerBox.getAttribute('indent'));
-		var width     = parseInt(innerBox.getAttribute('width'));
 		var boxWidth  = parseInt(innerBox.getAttribute('box-width'));
 		var boxHeight = parseInt(innerBox.getAttribute('box-height'));
 
-		var color  = aColor || w.getComputedStyle(aNode, null).getPropertyValue('color');
 		var x      = this.convertToPixels((aX || 0), boxWidth, aNode);
 		var y      = this.convertToPixels((aY || 0), boxHeight, aNode);
 		var radius = this.convertToPixels((aRadius || 0), boxWidth, aNode);
@@ -1090,8 +1044,8 @@ var TextShadowService = {
 		var shadows = d.createElement(this.SHADOW_CONTAINER);
 		shadows.setAttribute('style',
 			innerBox.getAttribute('rendering-style')
-			+ 'text-indent: '+indent+'px !important;'
-			+ 'width: '+width+'px !important;'
+			+ 'text-indent: '+innerBox.getAttribute('indent')+'px !important;'
+			+ 'width: '+innerBox.getAttribute('width')+'px !important;'
 			+ 'z-index: 1 !important;'
 			+ 'top: ' + (yOffset+y-(radius / 2)) + 'px !important;'
 			+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
@@ -1100,11 +1054,21 @@ var TextShadowService = {
 			+ '-moz-user-select: -moz-none !important;'
 			+ '-moz-user-focus: ignore !important;'
 			+ 'text-decoration: none !important;'
-			+ 'color: ' + color + ' !important;'
+			+ 'color: ' + (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color')) + ' !important;'
 		);
 
-		var nodes = aNode.childNodes;
-		var part = d.createElement(this.SHADOW_PART);
+		var nodes  = aNode.childNodes;
+		var part   = d.createElement(this.SHADOW_PART);
+
+		var anchor;
+		var endOffset = innerBox.getAttribute('end-offset');
+//		var align = '';
+		if (endOffset != '0') {
+			anchor = d.createElement(this.DUMMY);
+			anchor.setAttribute('style', 'padding-right: '+endOffset+'px !important;');
+//			align = 'text-align: right !important;'
+		}
+
 		for (var i = 0, maxi = radius; i < maxi; i++)
 		{
 			for (var j = 0, maxj = radius; j < maxj; j++)
@@ -1115,6 +1079,7 @@ var TextShadowService = {
 				{
 					f.appendChild(nodes[k].cloneNode(true));
 				}
+				if (anchor) f.appendChild(anchor.cloneNode(true));
 				shadow.appendChild(f);
 				shadow.setAttribute('style',
 					'position: absolute !important; display: block !important;'
@@ -1124,6 +1089,7 @@ var TextShadowService = {
 					+ 'bottom: ' + (-i-gap) + 'px !important;'
 					+ 'left: ' + (j+gap) + 'px !important;'
 					+ 'right: ' + (-j-gap) + 'px !important;'
+//					+ align
 				);
 				shadows.appendChild(shadow);
 			}

@@ -6,7 +6,7 @@
 	xmlns:html="http://www.w3.org/1999/xhtml">
 
 <binding id="textshadow-box">
-	<content><html:_moz-textshadow-inner-box style="position: relative !important; top: 0 !important; left: 0 !important;"><html:_moz-textshadow-original/><html:_moz-textshadow-base><children/></html:_moz-textshadow-base></html:_moz-textshadow-inner-box></content>
+	<content><html:_moz-textshadow-inner-box style="position: relative !important; top: 0 !important; left: 0 !important;"><html:_moz-textshadow-original><html:_moz-textshadow-dummy-box/></html:_moz-textshadow-original><html:_moz-textshadow-base><children/><html:_moz-textshadow-dummy-box/></html:_moz-textshadow-base></html:_moz-textshadow-inner-box></content>
 </binding>
 
 </bindings>

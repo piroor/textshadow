@@ -63,6 +63,13 @@
 	z-index: auto !important;
 }
 
+*|_moz-textshadow-dummy-box,
+*|_MOZ-TEXTSHADOW-DUMMY-BOX {
+	visibility: hidden;
+	position: relative;
+	z-index: -50;
+}
+
 *|_moz-textshadow-inner-box,
 *|_moz-textshadow-base,
 *|_moz-textshadow-original,
@@ -80,6 +87,8 @@
 	font-variant: inherit !important;
 	font-weight: inherit !important;
 	text-transform: inherit !important;
+	letter-spacing: inherit !important;
+	word-spacing: inherit !important;
 }
 
 *|*[_moz-textshadow-hover]:not(:hover) *|_moz-textshadow-shadow[type="hover"],

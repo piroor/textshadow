@@ -891,7 +891,7 @@ var TextShadowService = {
 		var lineHeight = this.getComputedPixels(innerContents[0], 'line-height');
 		var fontSize   = this.getComputedPixels(aNode, 'font-size');
 		var width      = info.width;
-		var indent     = info.indent;
+		var indent     = 0;
 
 		switch (context)
 		{
@@ -930,16 +930,17 @@ var TextShadowService = {
 			+ 'margin: 0 !important;'
 			+ 'padding: 0 !important;';
 
+		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
 
 		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
 		if (parentBox == p && !hasSiblingNodes) {
-			xOffset -= indent;
+			indent += info.indent;
+			xOffset -= info.indent;
+			if (align != 'left' && align != 'start' && align != 'justify' &&
+				context == 'block') {
+				xOffset -= d.getBoxObjectFor(aNode).screenX - info.boxX - info.indent;
+			}
 		}
-		else if (info.indent) { // そうでなければ、インデントを無効にする
-			indent -= info.indent;
-//			xOffset -= d.getBoxObjectFor(aNode).screenX - d.getBoxObjectFor(parentBox).screenX;
-		}
-
 
 		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
 			yOffset += this.getComputedPixels(parentBox, 'margin-top');
@@ -978,7 +979,6 @@ var TextShadowService = {
 		}
 
 
-		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
 		var endOffset = 0;
 		if (
 			align != 'left' && align != 'start' && align != 'justify' &&

@@ -949,7 +949,7 @@ var TextShadowService = {
 
 		var style = innerContents[1].style;
 		style.cssText = renderingStyle
-			+ 'width: '+width+'px !important;'
+			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
 			+ 'text-indent: '+indent+'px !important;'
 			+ 'z-index: 2 !important;'
 			+ 'top: ' + yOffset + 'px !important;'
@@ -968,13 +968,14 @@ var TextShadowService = {
 		var origBox   = d.getBoxObjectFor(innerContents[0]);
 		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
 			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
+			var c = 0;
 			while (
-				baseAnchorBox.screenY - lastLineY >= lineHeight &&
-				baseAnchorBox.screenY + dy - lastLineY >= lineHeight
+				c++ < 100 &&
+				d.getBoxObjectFor(baseAnchor).screenY - lastLineY >= lineHeight &&
+				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
 				)
 			{
-				width++;
-				style.width = width+'px !important';
+				style.width = (++width)+'px !important';
 			}
 		}
 
@@ -1333,10 +1334,12 @@ var TextShadowService = {
 				}
 
 				nodes.sort(function(aA, aB) {
+					if (!aA || !aB) return 0;
 					if (typeof aA == 'string') aA = d.getElementById(aA);
 					if (typeof aB == 'string') aB = d.getElementById(aB);
-					return (!aA || !aB) ? 0 :
-							d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
+					if (!aA.boxObject) aA.boxObject = d.getBoxObjectFor(aA);
+					if (!aB.boxObject) aB.boxObject = d.getBoxObjectFor(aB);
+					return aA.boxObject.screenY - aB.boxObject.screenY;
 				});
 				var self = this;
 				cues = cues.concat(nodes.map(function(aItem) {
@@ -1364,10 +1367,12 @@ var TextShadowService = {
 					nodesArray.push(nodes.snapshotItem(i));
 				}
 				cues.sort(function(aA, aB) {
+					if (!aA || !aB) return 0;
 					if (typeof aA == 'string') aA = d.getElementById(aA);
 					if (typeof aB == 'string') aB = d.getElementById(aB);
-					return (!aA || !aB) ? 0 :
-							d.getBoxObjectFor(aA).screenY - d.getBoxObjectFor(aB).screenY;
+					if (!aA.boxObject) aA.boxObject = d.getBoxObjectFor(aA);
+					if (!aB.boxObject) aB.boxObject = d.getBoxObjectFor(aB);
+					return aA.boxObject.screenY - aB.boxObject.screenY;
 				});
 				var self = this;
 				cues = cues.concat(nodesArray.map(function(aItem) {

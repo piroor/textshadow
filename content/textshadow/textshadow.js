@@ -7,6 +7,10 @@ var TextShadowService = {
 	renderingUnitSize     : 1,
 	silhouettePseud       : true,
 
+	checkUserStyleSheet   : false,
+	userStyleSheetDoc     : null,
+	userStyleSheet        : null,
+
 	UPDATE_INIT           : 0,
 	UPDATE_PAGELOAD       : 1,
 	UPDATE_RESIZE         : 2,
@@ -51,21 +55,22 @@ var TextShadowService = {
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
 	},
  
+	IOService : Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService), 
+ 
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
  
 	makeURIFromSpec : function(aURI) 
 	{
-		const IOService = Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService);
 		try {
 			var newURI;
 			aURI = aURI || '';
 			if (aURI && String(aURI).indexOf('file:') == 0) {
-				var fileHandler = IOService.getProtocolHandler('file').QueryInterface(Components.interfaces.nsIFileProtocolHandler);
+				var fileHandler = this.IOService.getProtocolHandler('file').QueryInterface(Components.interfaces.nsIFileProtocolHandler);
 				var tempLocalFile = fileHandler.getFileFromURLSpec(aURI);
-				newURI = IOService.newFileURI(tempLocalFile); // we can use this instance with the nsIFileURL interface.
+				newURI = this.IOService.newFileURI(tempLocalFile); // we can use this instance with the nsIFileURL interface.
 			}
 			else {
-				newURI = IOService.newURI(aURI, null, null);
+				newURI = this.IOService.newURI(aURI, null, null);
 			}
 			return newURI;
 		}
@@ -99,7 +104,50 @@ var TextShadowService = {
 		}
 		return value;
 	},
-  
+ 
+	get userStyleSheetURL() 
+	{
+		if (!('_userStyleSheetURL' in this)) {
+			this._userStyleSheetURL = null;
+			var file = this.userStyleSheetFile;
+			if (file) {
+				this._userStyleSheetURL = this.IOService.newFileURI(file).spec;
+			}
+		}
+		return this._userStyleSheetURL;
+	},
+ 
+	get userStyleSheetFile() 
+	{
+		if (!('_userStyleSheetFile' in this)) {
+			const DIR = Components.classes['@mozilla.org/file/directory_service;1'].getService(Components.interfaces.nsIProperties);
+			var file = DIR.get('UChrm', Components.interfaces.nsILocalFile);
+			file.append('userContent.css');
+			this._userStyleSheetFile = null;
+			if (file.exists()) {
+				this._userStyleSheetFile = file;
+			}
+		}
+		return this._userStyleSheetFile;
+	},
+ 
+	addStyleSheet : function(aDocument, aURI) 
+	{
+		var newPI = document.createProcessingInstruction('xml-stylesheet',
+				'href="'+aURI+'" type="text/css" media="all"');
+		try {
+			newPI = aDocument.importNode(newPI, true);
+		}
+		catch(e) {
+		}
+		try {
+			aDocument.insertBefore(newPI, aDocument.firstChild || aDocument.documentElement);
+		}
+		catch(e) {
+			dump(e+'\n');
+		}
+	},
+ 	 
 /* CSS3 selector support */ 
 	 
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
@@ -714,7 +762,7 @@ var TextShadowService = {
 	},
   
 /* draw shadow */ 
-	
+	 
 	drawShadow : function(aElement) 
 	{
 		var d = aElement.ownerDocument;
@@ -1319,20 +1367,7 @@ var TextShadowService = {
 				var nodes = this.collectTargets(aFrame);
 				if (!nodes) return;
 
-				var newPI = document.createProcessingInstruction('xml-stylesheet',
-						'href="chrome://textshadow/content/textshadow.css" type="text/css" media="all"');
-				try {
-					newPI = d.importNode(newPI, true);
-				}
-				catch(e) {
-				}
-				try {
-					d.insertBefore(newPI, d.documentElement);
-				}
-				catch(e) {
-					dump(e+'\n');
-				}
-
+				this.addStyleSheet(d, 'chrome://textshadow/content/textshadow.css');
 				nodes.sort(function(aA, aB) {
 					if (!aA || !aB) return 0;
 					if (typeof aA == 'string') aA = d.getElementById(aA);
@@ -1389,7 +1424,7 @@ var TextShadowService = {
 				break;
 		}
 	},
-	
+	 
 	parseTextShadowValue : function(aValue) 
 	{
 		var array = [];
@@ -1459,6 +1494,15 @@ var TextShadowService = {
 	{
 		var foundNodes = [];
 
+		if (this.checkUserStyleSheet) {
+			try {
+				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules));
+			}
+			catch(e) {
+				dump(e+'\n');
+			}
+		}
+
 		var styles = aFrame.document.styleSheets;
 		for (var i = 0, maxi = styles.length; i < maxi; i++)
 		{
@@ -1497,10 +1541,9 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-	
+	 
 	textShadowMayExists : function(aStyle) 
 	{
-		const IOService = Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService);
 		const CacheService = Components.classes['@mozilla.org/network/cache-service;1'].getService(Components.interfaces.nsICacheService);
 
 		var styleContent;
@@ -1519,7 +1562,7 @@ var TextShadowService = {
 		else {
 			if (/^(file|resource|chrome):/.test(uri)) {
 /*
-				var channel = IOService.newChannelFromURI(this.makeURIFromSpec(uri));
+				var channel = this.IOService.newChannelFromURI(this.makeURIFromSpec(uri));
 				var stream = channel.open();
 				var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
 						.createInstance(Components.interfaces.nsIScriptableInputStream);
@@ -1564,6 +1607,7 @@ var TextShadowService = {
 		var foundNodes = [];
 		var rules = aCSSRules;
 		var acceptMediaRegExp = /(^\s*$|all|screen|projection)/i;
+		var uri = aFrame.location.href;
 		for (var i = 0, maxi = rules.length; i < maxi; i++)
 		{
 			switch (rules[i].type)
@@ -1582,7 +1626,29 @@ var TextShadowService = {
 						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i]));
 					break;
 				default:
-					continue;
+					if (rules[i] != '[object CSSMozDocumentRule]') continue;
+
+					/@-moz-document\s+([^\{]+)/i.test(rules[i].cssText.replace(/[\n\r]/g, ''));
+					var list = RegExp.$1.split(/\s*,\s*/);
+					var match = false;
+					var regexp = new RegExp();
+					for (var j in list)
+					{
+						if (regexp.compile(
+							list[j].replace(/['"]\s*\)\s*$/, '')
+								.replace(/\./g, '\\.')
+								.replace(/url-prefix\(\s*['"]/i, '^')
+								.replace(/url\(\s*['"](.+)$/i, '^$1$')
+								.replace(/domain\(\s*['"]/i, '^\\w+\:\/\/')
+							).test(uri)) {
+							match = true;
+							break;
+						}
+					}
+					if (!match) continue;
+
+					foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
+					break;
 			}
 		}
 		return foundNodes;
@@ -1646,7 +1712,7 @@ var TextShadowService = {
 	},
   
 /* Initializing */ 
-	
+	 
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
@@ -1661,6 +1727,26 @@ var TextShadowService = {
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
 
 		this.initTabBrowser(gBrowser);
+
+
+		if (this.userStyleSheetFile && this.userStyleSheetURL) {
+			var channel = this.IOService.newChannelFromURI(this.makeURIFromSpec(this.userStyleSheetURL));
+			var stream = channel.open();
+			var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
+					.createInstance(Components.interfaces.nsIScriptableInputStream);
+			scriptableStream.init(stream);
+			var style = scriptableStream.read(scriptableStream.available());
+			scriptableStream.close();
+			stream.close();
+			if (style.indexOf('text-shadow') != -1) {
+				this.checkUserStyleSheet = true;
+				this.userStyleSheetDoc = document.implementation.createDocument('', '', null);
+				this.userStyleSheetDoc.appendChild(this.userStyleSheetDoc.createElement('foobar'));
+				this.addStyleSheet(this.userStyleSheetDoc, this.userStyleSheetURL);
+				this.userStyleSheet = this.userStyleSheetDoc.styleSheets[0];
+			}
+		}
+
 
 		this.initialized = true;
 	},

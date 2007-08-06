@@ -6,6 +6,7 @@ var TextShadowService = {
 	positionQuality       : 1,
 	renderingUnitSize     : 1,
 	silhouettePseud       : true,
+	autoInvert            : false,
 
 	checkUserStyleSheet   : false,
 	userStyleSheetDoc     : null,
@@ -1097,6 +1098,29 @@ var TextShadowService = {
 		var opacity = 1 / radius;
 		if (radius != 1) opacity *= 0.35; // to show like Safari
 
+
+		if (!aColor && this.autoInvert) {
+			var color = w.getComputedStyle(aNode, null).getPropertyValue('color');
+			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(color);
+			var rgb = [
+					Number(RegExp.$1),
+					Number(RegExp.$2),
+					Number(RegExp.$3)
+				];
+			// 元の色の明るさを調査
+			// なお、グレースケールへの変換式はこちらのサイトより引用。
+			// http://www.geocities.co.jp/Milkyway/4171/graphics/002-6.html
+			// check the brightness of the color
+			var bgbright = Math.floor(((299*rgb[0])+(582*rgb[1])+(114*rgb[2]))/1000);
+			aColor = (bgbright < 85) ? 'white' :
+					(bgbright < 170) ? 'gray'  :
+					'black' ;
+//dump(color+'('+rgb+') => '+aColor+'('+bgbright+')\n');
+		}
+
+		var color = (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color'));
+
+
 		var xOffset = parseInt(innerBox.getAttribute('x-offset'));
 		var yOffset = parseInt(innerBox.getAttribute('y-offset'));
 		var shadows = d.createElement(this.SHADOW_CONTAINER);
@@ -1112,7 +1136,7 @@ var TextShadowService = {
 			+ '-moz-user-select: -moz-none !important;'
 			+ '-moz-user-focus: ignore !important;'
 			+ 'text-decoration: none !important;'
-			+ 'color: ' + (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color')) + ' !important;'
+			+ 'color: ' + color + ' !important;'
 		);
 
 		var nodes  = aNode.childNodes;
@@ -1128,7 +1152,8 @@ var TextShadowService = {
 		var baseStyle =
 			'position: absolute !important; display: block !important;'
 			+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
-			+ 'opacity: ' + opacity + ' !important;';
+			+ 'opacity: ' + opacity + ' !important;'
+			+ 'color: ' + color + ' !important;';
 
 		for (var i = 0, maxi = radius; i < maxi; i++)
 		{
@@ -1799,6 +1824,7 @@ var TextShadowService = {
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.silhouettePseudElementsAndClasses');
+		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.autoInvert');
 
 		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
@@ -1929,6 +1955,10 @@ var TextShadowService = {
 
 			case 'extensions.textshadow.silhouettePseudElementsAndClasses':
 				this.silhouettePseud = value;
+				break;
+
+			case 'extensions.textshadow.autoInvert':
+				this.autoInvert = value;
 				break;
 
 			default:

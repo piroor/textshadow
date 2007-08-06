@@ -6,7 +6,7 @@ var TextShadowService = {
 	positionQuality       : 1,
 	renderingUnitSize     : 1,
 	silhouettePseud       : true,
-	autoInvert            : false,
+	autoColorUser         : false,
 
 	checkUserStyleSheet   : false,
 	userStyleSheetDoc     : null,
@@ -1098,7 +1098,7 @@ var TextShadowService = {
 		var opacity = 1 / radius;
 		if (radius != 1) opacity *= 0.35; // to show like Safari
 
-		if (!aColor && aIsUserStyle && this.autoInvert) {
+		if (!aColor && aIsUserStyle && this.autoColorUser) {
 			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(w.getComputedStyle(aNode, null).getPropertyValue('color'));
 			var fgRGB = [
 					Number(RegExp.$1),
@@ -1777,7 +1777,7 @@ var TextShadowService = {
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.silhouettePseudElementsAndClasses');
-		this.observe(null, 'nsPref:changed', 'extensions.textshadow.autoInvert');
+		this.observe(null, 'nsPref:changed', 'extensions.textshadow.autoCalculateShadowColor.userStyleSheet');
 
 		this.initTabBrowser(gBrowser);
 
@@ -1985,8 +1985,8 @@ var TextShadowService = {
 				this.silhouettePseud = value;
 				break;
 
-			case 'extensions.textshadow.autoInvert':
-				this.autoInvert = value;
+			case 'extensions.textshadow.autoCalculateShadowColor.userStyleSheet':
+				this.autoColorUser = value;
 				break;
 
 			default:

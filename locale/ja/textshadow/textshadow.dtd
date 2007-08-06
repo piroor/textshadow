@@ -1,6 +1,8 @@
 <!ENTITY config.title    "テキストシャドウの設定">
+<!ENTITY config.style    "max-width: 40em;">
 
-<!ENTITY extensions.textshadow.enabled  "文字に影を付けて表示する">
+<!ENTITY extensions.textshadow.enabled     "文字に影を付けて表示する">
+<!ENTITY extensions.textshadow.autoCalculateShadowColor.userStyleSheet  "ユーザースタイルシートで色を指定せずに指定された影について、影の色を自動調整する">
 
 <!ENTITY extensions.textshadow.renderingUnitSize.before "一度に">
 <!ENTITY extensions.textshadow.renderingUnitSize.after  "個ずつ影を描画する">

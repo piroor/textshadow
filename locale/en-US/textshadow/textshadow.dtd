@@ -1,6 +1,8 @@
 <!ENTITY config.title    "Text Shadow Configuration">
+<!ENTITY config.style    "max-width: 40em;">
 
 <!ENTITY extensions.textshadow.enabled  "Show text with drop-shadow">
+<!ENTITY extensions.textshadow.autoCalculateShadowColor.userStyleSheet  "Calculate the color of shadows automatically, when they are declared in the user stylesheet without their color">
 
 <!ENTITY extensions.textshadow.renderingUnitSize.before "Draw">
 <!ENTITY extensions.textshadow.renderingUnitSize.after  "shadows per frames">

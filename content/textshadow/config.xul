@@ -9,7 +9,8 @@
 
 <prefwindow id="textshadow-config"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-	title="&config.title;">
+	title="&config.title;"
+	style="&config.style;">
 
 <prefpane id="prefpane-general" label="">
 	<preferences>
@@ -22,11 +23,18 @@
 		<preference id="extensions.textshadow.position.quality"
 			name="extensions.textshadow.position.quality"
 			type="int"/>
+		<preference id="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
+			name="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
+			type="bool"/>
 	</preferences>
 
 	<checkbox id="extensions.textshadow.enabled-check"
 		preference="extensions.textshadow.enabled"
 		label="&extensions.textshadow.enabled;"/>
+
+	<checkbox id="extensions.textshadow.autoCalculateShadowColor.userStyleSheet-check"
+		preference="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
+		label="&extensions.textshadow.autoCalculateShadowColor.userStyleSheet;"/>
 
 	<hbox align="center">
 		<label class="shrinked-label"

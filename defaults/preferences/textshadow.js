@@ -4,7 +4,7 @@ pref("extensions.textshadow.renderingUnitSize", 5);
 pref("extensions.textshadow.position.quality", 1);
 pref("extensions.textshadow.silhouettePseudElementsAndClasses", true);
 
-pref("extensions.textshadow.autoInvert", true);
+pref("extensions.textshadow.autoCalculateShadowColor.userStyleSheet", true);
 
 pref("extensions.textshadow@piro.sakura.ne.jp.name", "chrome://textshadow/locale/textshadow.properties");
 pref("extensions.textshadow@piro.sakura.ne.jp.description", "chrome://textshadow/locale/textshadow.properties");

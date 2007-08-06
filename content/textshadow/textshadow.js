@@ -867,7 +867,7 @@ var TextShadowService = {
 				if (info) {
 					for (var j = 0, maxj = info.shadows.length; j < maxj; j++)
 					{
-						aSelf.drawOneShadow(cue, info.shadows[j].x, info.shadows[j].y, info.shadows[j].radius, info.shadows[j].color);
+						aSelf.drawOneShadow(cue, info.shadows[j].x, info.shadows[j].y, info.shadows[j].radius, info.shadows[j].color, info.isUserStyle);
 					}
 				}
 			}
@@ -1064,7 +1064,7 @@ var TextShadowService = {
 		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
  
-	drawOneShadow : function(aNode, aX, aY, aRadius, aColor) 
+	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aIsUserStyle) 
 	{
 		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
 			this.clearOneShadow(aNode);
@@ -1098,24 +1098,46 @@ var TextShadowService = {
 		var opacity = 1 / radius;
 		if (radius != 1) opacity *= 0.35; // to show like Safari
 
-
-		if (!aColor && this.autoInvert) {
-			var color = w.getComputedStyle(aNode, null).getPropertyValue('color');
-			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(color);
-			var rgb = [
+		if (!aColor && aIsUserStyle && this.autoInvert) {
+			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(w.getComputedStyle(aNode, null).getPropertyValue('color'));
+			var fgRGB = [
 					Number(RegExp.$1),
 					Number(RegExp.$2),
 					Number(RegExp.$3)
 				];
+
+			var bg = null;
+			var bgNode = aNode.parentNode;
+			while (bg == 'transparent' && bgNode.parentNode)
+			{
+				bgNode = bgNode.parentNode;
+				bg = w.getComputedStyle(bgNode, null).getPropertyValue('background-color');
+			}
+			if (!bg) bg = 'rgb(255,255,255)';
+			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(bg);
+			var bgRGB = [
+					Number(RegExp.$1),
+					Number(RegExp.$2),
+					Number(RegExp.$3)
+				];
+
 			// 元の色の明るさを調査
 			// なお、グレースケールへの変換式はこちらのサイトより引用。
 			// http://www.geocities.co.jp/Milkyway/4171/graphics/002-6.html
 			// check the brightness of the color
-			var bgbright = Math.floor(((299*rgb[0])+(582*rgb[1])+(114*rgb[2]))/1000);
-			aColor = (bgbright < 85) ? 'white' :
-					(bgbright < 170) ? 'gray'  :
-					'black' ;
-//dump(color+'('+rgb+') => '+aColor+'('+bgbright+')\n');
+			var fgBright = Math.floor(((299*fgRGB[0])+(582*fgRGB[1])+(114*fgRGB[2]))/1000);
+			var bgBright = Math.floor(((299*bgRGB[0])+(582*bgRGB[1])+(114*bgRGB[2]))/1000);
+
+			aColor = (fgBright < 85 && bgBright < 85) ? 'white' :
+					(fgBright < 85 && bgBright < 170) ? 'black' :
+					(fgBright < 85) ? 'gray' :
+					(fgBright < 170 && bgBright < 85) ? 'white' :
+					(fgBright < 170 && bgBright < 170) ? 'black' :
+					(fgBright < 170) ? 'gray' :
+					(bgBright < 85) ? 'black' :
+					(bgBright < 170) ? 'black' :
+					'gray' ;
+//			dump(w.getComputedStyle(aNode, null).getPropertyValue('color')+' / '+bg+'('+fgBright+','+bgBright+') => '+aColor+'\n');
 		}
 
 		var color = (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color'));
@@ -1521,7 +1543,7 @@ var TextShadowService = {
 
 		if (this.checkUserStyleSheet) {
 			try {
-				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules));
+				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules, true));
 			}
 			catch(e) {
 				dump(e+'\n');
@@ -1627,7 +1649,7 @@ var TextShadowService = {
 		return (styleContent) ? (styleContent.indexOf('text-shadow') > -1) : true ;
 	},
  
-	collectTargetsFromCSSRules : function(aFrame, aCSSRules) 
+	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aIsUserStyle) 
 	{
 		var foundNodes = [];
 		var rules = aCSSRules;
@@ -1640,15 +1662,15 @@ var TextShadowService = {
 				case rules[i].IMPORT_RULE:
 					if (acceptMediaRegExp.test(rules[i].media.mediaText) &&
 						acceptMediaRegExp.test(rules[i].styleSheet.media.mediaText))
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].styleSheet.cssRules));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].styleSheet.cssRules, aIsUserStyle));
 					break;
 				case rules[i].MEDIA_RULE:
 					if (acceptMediaRegExp.test(rules[i].media.mediaText))
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aIsUserStyle));
 					break;
 				case rules[i].STYLE_RULE:
 					if (rules[i].style.textShadow)
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i]));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i], aIsUserStyle));
 					break;
 				default:
 					if (rules[i] != '[object CSSMozDocumentRule]') continue;
@@ -1672,20 +1694,22 @@ var TextShadowService = {
 					}
 					if (!match) continue;
 
-					foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules));
+					foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aIsUserStyle));
 					break;
 			}
 		}
 		return foundNodes;
 	},
  
-	collectTargetsFromCSSRule : function(aFrame, aCSSRule) 
+	collectTargetsFromCSSRule : function(aFrame, aCSSRule, aIsUserStyle) 
 	{
 		var foundNodes = [];
 		var foundCount = 0;
 		var value     = this.parseTextShadowValue(aCSSRule.style.textShadow);
 		if (!value.shadows.length) return foundNodes;
 		value.important = aCSSRule.style.getPropertyPriority('text-shadow') == 'important';
+
+		if (aIsUserStyle) value.isUserStyle = true;
 
 		var spec = {};
 		if (
@@ -1750,6 +1774,10 @@ var TextShadowService = {
 
 		this.addPrefListener(this);
 		this.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
+		this.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
+		this.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
+		this.observe(null, 'nsPref:changed', 'extensions.textshadow.silhouettePseudElementsAndClasses');
+		this.observe(null, 'nsPref:changed', 'extensions.textshadow.autoInvert');
 
 		this.initTabBrowser(gBrowser);
 
@@ -1817,14 +1845,12 @@ var TextShadowService = {
 			this.initTab(tabs[i], aTabBrowser);
 		}
 
+/*
 		var listener = new TextShadowPrefListener(aTabBrowser);
 		aTabBrowser.__textshadow__prefListener = listener;
 		this.addPrefListener(listener);
 		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.enabled');
-		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.renderingUnitSize');
-		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.position.quality');
-		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.silhouettePseudElementsAndClasses');
-		listener.observe(null, 'nsPref:changed', 'extensions.textshadow.autoInvert');
+*/
 
 		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
@@ -1865,9 +1891,11 @@ var TextShadowService = {
 	
 	destroyTabBrowser : function(aTabBrowser) 
 	{
+/*
 		this.removePrefListener(aTabBrowser.__textshadow__prefListener);
 		delete aTabBrowser.__textshadow__prefListener.mTabBrowser;
 		delete aTabBrowser.__textshadow__prefListener;
+*/
 
 		window.removeEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 

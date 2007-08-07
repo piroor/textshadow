@@ -1457,6 +1457,9 @@ var TextShadowService = {
 		}
 
 		var d = aFrame.document;
+
+		if (d.designMode == 'on') return;
+
 		var rootNode = d.documentElement;
 		var cues = this.getJSValueFromAttribute(rootNode, this.ATTR_INIT_CUE);
 		if (!cues) cues = [];
@@ -1523,7 +1526,7 @@ var TextShadowService = {
 					}));
 				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
 				rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
-				this.startInitialize(aFrame);
+				this.startInitialize(aFrame, true);
 				break;
 
 			case this.UPDATE_STYLE_DISABLE:
@@ -1797,7 +1800,7 @@ var TextShadowService = {
 		}
 	},
  
-	startInitialize : function(aFrame) 
+	startInitialize : function(aFrame, aForceUpdate) 
 	{
 		var node = aFrame.document.documentElement;
 		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
@@ -1808,11 +1811,11 @@ var TextShadowService = {
 		if (timerId) {
 			aFrame.clearTimeout(timerId);
 		}
-		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame);
+		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame, aForceUpdate);
 		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
 	},
  
-	delayedInitialize : function(aSelf, aFrame) 
+	delayedInitialize : function(aSelf, aFrame, aForceUpdate) 
 	{
 		var node = aFrame.document.documentElement;
 		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
@@ -1831,7 +1834,7 @@ var TextShadowService = {
 				continue;
 			}
 
-//			aSelf.clearShadowBox(cue);
+			if (aForceUpdate) aSelf.clearShadowBox(cue);
 			aSelf.createShadowBox(cue);
 
 			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
@@ -1840,7 +1843,7 @@ var TextShadowService = {
 
 		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
 
-		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame);
+		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame, aForceUpdate);
 		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
 	},
   
@@ -2213,7 +2216,7 @@ TextShadowProgressListener.prototype = {
 			aStateFlags & nsIWebProgressListener.STATE_STOP &&
 			aStateFlags & nsIWebProgressListener.STATE_IS_NETWORK
 			) {
-			TextShadowService.updateShadow(this.mTab, this.mTabBrowser, TextShadowService.UPDATE_PAGELOAD);
+			TextShadowService.updateShadowForTab(this.mTab, this.mTabBrowser, TextShadowService.UPDATE_PAGELOAD);
 		}
 	},
 	onLocationChange : function(aWebProgress, aRequest, aLocation)

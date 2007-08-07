@@ -16,9 +16,11 @@ var TextShadowService = {
 	UPDATE_PAGELOAD       : 1,
 	UPDATE_RESIZE         : 2,
 	UPDATE_REBUILD        : 3,
+	UPDATE_STYLE_ENABLE   : 4,
+	UPDATE_STYLE_DISABLE  : 5,
 	 
 /* coustructions */ 
-	
+	 
 	ID_PREFIX             : '_moz-textshadow-temp-', 
  
 	SHADOW                : 'span', 
@@ -881,7 +883,7 @@ var TextShadowService = {
 		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 		this.startAllDraw(d.defaultView);
 	},
- 	
+ 
 	startAllDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -972,7 +974,7 @@ var TextShadowService = {
 			);
 		}
 	},
-	 
+	
 	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aType, aIsUserStyle) 
 	{
 		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
@@ -1428,7 +1430,7 @@ var TextShadowService = {
 			this.clearOneShadow(boxes.snapshotItem(i));
 		}
 	},
-	
+	 
 	clearOneShadow : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
@@ -1493,6 +1495,7 @@ var TextShadowService = {
 			case this.UPDATE_RESIZE:
 				if (rootNode.getAttribute(this.ATTR_LAST_WIDTH) == d.getBoxObjectFor(rootNode).width) return;
 
+			case this.UPDATE_STYLE_ENABLE:
 			case this.UPDATE_REBUILD:
 				var nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
 				if (!nodes.snapshotLength) return;
@@ -1521,6 +1524,15 @@ var TextShadowService = {
 				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
 				rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
 				this.startInitialize(aFrame);
+				break;
+
+			case this.UPDATE_STYLE_DISABLE:
+				var nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
+				if (!nodes.snapshotLength) return;
+				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
+				{
+					this.clearShadowBox(nodes.snapshotItem(i));
+				}
 				break;
 		}
 	},
@@ -1867,6 +1879,12 @@ var TextShadowService = {
 		}
 
 
+		if ('setStyleDisabled' in window) {
+			window.__textshadow__setStyleDisabled = window.setStyleDisabled;
+			window.setStyleDisabled = this.setStyleDisabled;
+		}
+
+
 		this.initialized = true;
 	},
 	 
@@ -1941,7 +1959,17 @@ var TextShadowService = {
 		aTab.__textshadow__progressListener = listener;
 		aTab.__textshadow__progressFilter   = filter;
 	},
-  
+ 
+	setStyleDisabled : function(aDisable) 
+	{
+		var TSS = TextShadowService;
+		if (aDisable)
+			TSS.updateAllShadows(TSS.browser, TSS.UPDATE_STYLE_DISABLE);
+		window.__textshadow__setStyleDisabled.apply(window, arguments);
+		if (!aDisable)
+			TSS.updateAllShadows(TSS.browser, TSS.UPDATE_STYLE_ENABLE);
+	},
+ 	 
 	destroy : function() 
 	{
 		this.destroyTabBrowser(gBrowser);

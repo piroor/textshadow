@@ -92,18 +92,18 @@
 	word-spacing: inherit !important;
 }
 
-*|*[_moz-textshadow-hover]:not(:hover) *|_moz-textshadow-shadow[type="hover"],
-*|*[_moz-textshadow-hover]:not(:hover) *|_MOZ-TEXTSHADOW-SHADOW[type="hover"],
-*|*[_moz-textshadow-active]:not(:active) *|_moz-textshadow-shadow[type="active"],
-*|*[_moz-textshadow-active]:not(:active) *|_MOZ-TEXTSHADOW-SHADOW[type="active"],
-*|*[_moz-textshadow-focus]:not(:focus) *|_moz-textshadow-shadow[type="focus"],
-*|*[_moz-textshadow-focus]:not(:focus) *|_MOZ-TEXTSHADOW-SHADOW[type="focus"],
-*|*[_moz-textshadow-hover]:hover *|_moz-textshadow-shadow:not([type]),
-*|*[_moz-textshadow-hover]:hover *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
-*|*[_moz-textshadow-active]:active *|_moz-textshadow-shadow:not([type]),
-*|*[_moz-textshadow-active]:active *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
-*|*[_moz-textshadow-focus]:focus *|_moz-textshadow-shadow:not([type]),
-*|*[_moz-textshadow-focus]:focus *|_MOZ-TEXTSHADOW-SHADOW:not([type]) {
-	display: none;
+*|*[_moz-pseud-dynamic-hover]:not(:hover) *|_moz-textshadow-shadow[type="hover"],
+*|*[_moz-pseud-dynamic-hover]:not(:hover) *|_MOZ-TEXTSHADOW-SHADOW[type="hover"],
+*|*[_moz-pseud-dynamic-active]:not(:active) *|_moz-textshadow-shadow[type="active"],
+*|*[_moz-pseud-dynamic-active]:not(:active) *|_MOZ-TEXTSHADOW-SHADOW[type="active"],
+*|*[_moz-pseud-dynamic-focus]:not(:focus) *|_moz-textshadow-shadow[type="focus"],
+*|*[_moz-pseud-dynamic-focus]:not(:focus) *|_MOZ-TEXTSHADOW-SHADOW[type="focus"],
+*|*[_moz-pseud-dynamic-hover]:hover *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-pseud-dynamic-hover]:hover *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
+*|*[_moz-pseud-dynamic-active]:active *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-pseud-dynamic-active]:active *|_MOZ-TEXTSHADOW-SHADOW:not([type]),
+*|*[_moz-pseud-dynamic-focus]:focus *|_moz-textshadow-shadow:not([type]),
+*|*[_moz-pseud-dynamic-focus]:focus *|_MOZ-TEXTSHADOW-SHADOW:not([type]) {
+	display: none !important;
 }
 

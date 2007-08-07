@@ -18,7 +18,7 @@ var TextShadowService = {
 	UPDATE_REBUILD        : 3,
 	 
 /* coustructions */ 
-	 
+	
 	ID_PREFIX             : '_moz-textshadow-temp-', 
  
 	SHADOW                : 'span', 
@@ -50,7 +50,7 @@ var TextShadowService = {
 	ATTR_LAST_WIDTH      : '_moz-textshadow-last-width',
   
 /* Utilities */ 
-	 
+	
 	get browser() 
 	{
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
@@ -148,9 +148,9 @@ var TextShadowService = {
 			dump(e+'\n');
 		}
 	},
- 	 
+  
 /* CSS3 selector support */ 
-	 
+	
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
 		var nodes = [];
@@ -546,6 +546,18 @@ var TextShadowService = {
 									break;
 								}
 
+							case 'hover':
+							case 'focus':
+							case 'active':
+								if (self.silhouettePseud) {
+									foundElements = getElementsByCondition(function(aElement) {
+										aElement.setAttribute('_moz-pseud-dynamic-'+pseud, true);
+										return 1;
+									}, foundElements);
+									aSpecificity.condition++;
+									break;
+								}
+
 							case 'first-letter':
 								if (self.silhouettePseud) {
 									steps[stepsCount++] = makeLocationStep(step, con);
@@ -825,7 +837,7 @@ var TextShadowService = {
 		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 		this.startDraw(d.defaultView);
 	},
-	
+	 
 	startDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -840,7 +852,7 @@ var TextShadowService = {
 		timerId = aFrame.setTimeout(this.delayedDraw, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
-	
+	 
 	delayedDraw : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -865,9 +877,35 @@ var TextShadowService = {
 			try {
 				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE_FOR_EACH);
 				if (info) {
-					for (var j = 0, maxj = info.shadows.length; j < maxj; j++)
-					{
-						aSelf.drawOneShadow(cue, info.shadows[j].x, info.shadows[j].y, info.shadows[j].radius, info.shadows[j].color, info.isUserStyle);
+					if (info.normal) {
+						for (var j = 0, maxj = info.normal.shadows.length; j < maxj; j++)
+						{
+							aSelf.drawOneShadow(
+								cue,
+								info.normal.shadows[j].x,
+								info.normal.shadows[j].y,
+								info.normal.shadows[j].radius,
+								info.normal.shadows[j].color,
+								info.normal.type,
+								info.normal.isUserStyle
+							);
+						}
+					}
+					if (info.hover) {
+						var listener = new TextShadowDynamicEventListener(cue, info.hover);
+						cue.addEventListener('mouseover', listener, false);
+						aFrame.addEventListener('unload', listener, false);
+					}
+					if (info.active) {
+						var listener = new TextShadowDynamicEventListener(cue, info.active);
+						cue.addEventListener('mousedown', listener, false);
+						cue.addEventListener('keydown',   listener, false);
+						aFrame.addEventListener('unload', listener, false);
+					}
+					if (info.focus) {
+						var listener = new TextShadowDynamicEventListener(cue, info.focus);
+						cue.addEventListener('focus', listener, false);
+						aFrame.addEventListener('unload', listener, false);
 					}
 				}
 			}
@@ -975,7 +1013,6 @@ var TextShadowService = {
 		}
 
 		var renderingStyle = 'position: absolute !important;'
-			+ 'display: block !important;'
 			+ 'margin: 0 !important;'
 			+ 'padding: 0 !important;';
 
@@ -1064,7 +1101,7 @@ var TextShadowService = {
 		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
  
-	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aIsUserStyle) 
+	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aType, aIsUserStyle) 
 	{
 		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
 			this.clearOneShadow(aNode);
@@ -1160,6 +1197,8 @@ var TextShadowService = {
 			+ 'text-decoration: none !important;'
 			+ 'color: ' + color + ' !important;'
 		);
+		if (aType)
+			shadows.setAttribute('type', aType);
 
 		var nodes  = aNode.childNodes;
 		var part   = d.createElement(this.SHADOW_PART);
@@ -1172,7 +1211,7 @@ var TextShadowService = {
 		}
 
 		var baseStyle =
-			'position: absolute !important; display: block !important;'
+			'position: absolute !important;'
 			+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
 			+ 'opacity: ' + opacity + ' !important;'
 			+ 'color: ' + color + ' !important;';
@@ -1294,7 +1333,7 @@ var TextShadowService = {
 					return aCSSLength / 100 * aParentWidth;
 
 				case 'em':
-					return aCSSLength * fontSize * 0.7;
+					return aCSSLength * fontSize;
 
 				case 'ex':
 					return aCSSLength * fontSize * 0.5;
@@ -1532,15 +1571,14 @@ var TextShadowService = {
 			array.push(shadow);
 		}
 
-		return {
-			shadows : array
-		};
+		return array;
 	},
  
 	collectTargets : function(aFrame) 
 	{
 		var foundNodes = [];
 
+		// user stylesheet
 		if (this.checkUserStyleSheet) {
 			try {
 				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules, true));
@@ -1550,6 +1588,7 @@ var TextShadowService = {
 			}
 		}
 
+		// author stylesheets
 		var styles = aFrame.document.styleSheets;
 		for (var i = 0, maxi = styles.length; i < maxi; i++)
 		{
@@ -1560,8 +1599,7 @@ var TextShadowService = {
 					styles[i].media.mediaText &&
 					!/^\s*$/.test(styles[i].media.mediaText) &&
 					!/(all|screen|projection)/i.test(styles[i].media.mediaText)
-				)/* ||
-				!this.textShadowMayExists(styles[i]) */
+				)
 				)
 				continue;
 			foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, styles[i].cssRules));
@@ -1569,19 +1607,30 @@ var TextShadowService = {
 
 		var foundCount = foundNodes.length;
 
-		var nodes = this.getNodesByXPath('//descendant::*[contains(@style, "text-shadow")]', aFrame.document);
+		// "style" attribute
+		var nodes = this.getNodesByXPath('/descendant::*[contains(@style, "text-shadow")]', aFrame.document);
 		for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 		{
 			var node = nodes.snapshotItem(i);
 			if (!node.style.textShadow)
 				continue;
 
-			var value = this.parseTextShadowValue(node.style.textShadow);
-			if (!value.shadows.length) continue;
-			value.specificity = node.style.getPropertyPriority('text-shadow') == 'important' ? 11000 : 1000 ;
+			var array = this.parseTextShadowValue(node.style.textShadow);
+			if (!array.length) continue;
 
-			var oldVal = this.getJSValueFromAttribute(node, this.ATTR_STYLE);
-			if (oldVal && oldVal.specificity > value.specificity) continue;
+			var important   = node.style.getPropertyPriority('text-shadow') == 'important';
+			var specificity = important ? 11000 : 1000 ;
+
+			var value = this.getJSValueFromAttribute(node, this.ATTR_STYLE) || {};
+			if (value && value.normal && value.normal.specificity > specificity) continue;
+
+			value.normal = {
+				shadows     : array,
+				specificity : specificity,
+				important   : important,
+				type        : 'normal',
+				isUserStyle : false
+			};
 
 			node.setAttribute(this.ATTR_STYLE, value.toSource());
 			foundNodes[foundCount++] = node;
@@ -1589,66 +1638,6 @@ var TextShadowService = {
 		return foundNodes;
 	},
 	 
-	textShadowMayExists : function(aStyle) 
-	{
-		const CacheService = Components.classes['@mozilla.org/network/cache-service;1'].getService(Components.interfaces.nsICacheService);
-
-		var styleContent;
-		var uri = aStyle.href;
-		if (
-			aStyle.ownerNode &&
-			aStyle.ownerNode.localName.toLowerCase() == 'style'
-			) {
-			styleContent = aStyle.ownerNode.innerHTML || aStyle.ownerNode.textContent;
-		}
-		else if (
-			aStyle.ownerNode &&
-			uri.split('#')[0] == aStyle.ownerNode.ownerDocument.defaultView.location.href.split('#')[0]
-			) {
-		}
-		else {
-			if (/^(file|resource|chrome):/.test(uri)) {
-/*
-				var channel = this.IOService.newChannelFromURI(this.makeURIFromSpec(uri));
-				var stream = channel.open();
-				var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
-						.createInstance(Components.interfaces.nsIScriptableInputStream);
-				scriptableStream.init(stream);
-				styleContent = scriptableStream.read(scriptableStream.available());
-				scriptableStream.close();
-				stream.close();
-*/
-			}
-			else if (/^https?:/.test(uri)) {
-				var session, entry;
-				try {
-					session = CacheService.createSession('HTTP-memory-only', Components.interfaces.nsICache.STORE_ANYWHERE, true);
-					entry = session.openCacheEntry(uri, Components.interfaces.nsICache.ACCESS_READ, false);
-				}
-				catch(e) {
-/*
-					try {
-						session = CacheService.createSession('HTTP', Components.interfaces.nsICache.STORE_ANYWHERE, true);
-						entry = session.openCacheEntry(uri, Components.interfaces.nsICache.ACCESS_READ, false);
-					}
-					catch(e) {
-					}
-*/
-				}
-				if (entry) {
-					var stream = entry.openInputStream(0);
-					var scriptableStream = Components.classes['@mozilla.org/scriptableinputstream;1']
-							.createInstance(Components.interfaces.nsIScriptableInputStream);
-					scriptableStream.init(stream);
-					styleContent = scriptableStream.read(scriptableStream.available());
-					scriptableStream.close();
-					stream.close();
-				}
-			}
-		}
-		return (styleContent) ? (styleContent.indexOf('text-shadow') > -1) : true ;
-	},
- 
 	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aIsUserStyle) 
 	{
 		var foundNodes = [];
@@ -1705,11 +1694,11 @@ var TextShadowService = {
 	{
 		var foundNodes = [];
 		var foundCount = 0;
-		var value     = this.parseTextShadowValue(aCSSRule.style.textShadow);
-		if (!value.shadows.length) return foundNodes;
-		value.important = aCSSRule.style.getPropertyPriority('text-shadow') == 'important';
+		var array      = this.parseTextShadowValue(aCSSRule.style.textShadow);
+		if (!array.length) return foundNodes;
 
-		if (aIsUserStyle) value.isUserStyle = true;
+		var important   = aCSSRule.style.getPropertyPriority('text-shadow') == 'important';
+		var isUserStyle = aIsUserStyle || false;
 
 		var spec = {};
 		if (
@@ -1723,7 +1712,10 @@ var TextShadowService = {
 				if (!nodes.length) continue;
 
 				var specificity = spec.specificities[i].value;
-				specificity = Number((value.important ? '1' : '' )+specificity);
+				specificity = Number((important ? '1' : '' )+specificity);
+
+				var type = /:(hover|focus|active)/i.test(spec.specificities[i].selector) ? RegExp.$1.toLowerCase() : 'normal' ;
+
 				for (var j = 0, maxj = nodes.length; j < maxj; j++)
 				{
 					if (
@@ -1732,11 +1724,22 @@ var TextShadowService = {
 						)
 						continue;
 
-					var oldVal = this.getJSValueFromAttribute(nodes[j], this.ATTR_STYLE);
-					if (oldVal && oldVal.specificity > specificity) continue;
+					var value = this.getJSValueFromAttribute(nodes[j], this.ATTR_STYLE) || {};
+					if (value && value[type] && value[type].specificity > specificity) continue;
 
-					value.specificity = specificity;
+					value[type] = {
+						type        : type,
+						shadows     : array,
+						specificity : specificity,
+						important   : important,
+						isUserStyle : isUserStyle
+					};
+
 					nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
+
+//					if (spec.specificities[i].selector.indexOf(':first-letter') > -1) {
+//					}
+
 					foundNodes[foundCount++] = nodes[j];
 				}
 			}
@@ -2179,3 +2182,56 @@ TextShadowPrefListener.prototype = {
 	}
 };
  
+function TextShadowDynamicEventListener(aTarget, aInfo) 
+{
+	this.target = aTarget;
+	this.info   = aInfo;
+	this.type   = aInfo.type;
+}
+TextShadowDynamicEventListener.prototype = {
+	target      : null,
+	info        : null,
+	type        : null,
+	handleEvent : function(aEvent)
+	{
+		this.target.ownerDocument.defaultView.removeEventListener('unload', this, false);
+		switch (this.type)
+		{
+			case 'mouseover':
+			case 'focus':
+				this.target.removeEventListener(this.type, this, false);
+				break;
+
+			case 'mousedown':
+			case 'keydown':
+				this.target.removeEventListener('mousedown', this, false);
+				this.target.removeEventListener('keydown', this, false);
+				break;
+		}
+		if (aEvent.type == 'unload') {
+			delete this.info;
+			delete this.target;
+			delete this.type;
+			return;
+		}
+
+		for (var i = 0, maxi = this.info.shadows.length; i < maxi; i++)
+		{
+			TextShadowService.drawOneShadow(
+				this.target,
+				this.info.shadows[i].x,
+				this.info.shadows[i].y,
+				this.info.shadows[i].radius,
+				this.info.shadows[i].color,
+				this.info.type,
+				this.info.isUserStyle
+			);
+		}
+
+		delete this.info;
+		delete this.target;
+		delete this.type;
+	}
+};
+
+ 	

@@ -3,7 +3,6 @@ p > em {
 	text-shadow: 2px 2px 2mm orange;
 }
 p.test1:first-line,
-p.test2:first-letter,
 li[testAttr="hoge"],
 li[testAttr~="bar"],
 li[lang|="en"],
@@ -12,6 +11,12 @@ p.only-child {
 	text-shadow: 2px 2px 3pt red !important;
 	color: red;
 }
+p.test2:first-letter {
+	font-size: 3em;
+	text-shadow: 2px 2px 3pt red !important;
+	color: red;
+}
+
 p:last-child,
 :target,
 :checked,
@@ -21,6 +26,15 @@ ul.test li+li {
 
 :visited {
 	text-shadow: 0px 0px 2px purple;
+}
+:link:hover {
+	text-shadow: 0px 0px 4px yellow;
+}
+:link:active {
+	text-shadow: 0px 0px 4px blue;
+}
+:link:focuse {
+	text-shadow: 0px 0px 4px green;
 }
 
 :root {

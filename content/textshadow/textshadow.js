@@ -38,6 +38,19 @@ var TextShadowService = {
 	FIRSTLINE_CLASS       : '_moz-first-line-pseud',
 	FIRSTLINE_CONDITION   : '@class = "_moz-first-line-pseud"',
 
+	VISITED               : '_moz-pseud-class-visited',
+	VISITED_CONDITION     : '@_moz-pseud-class-visited = "true"',
+
+	TARGET                : '_moz-pseud-class-target',
+	TARGET_CONDITION      : '@_moz-pseud-class-target = "true"',
+
+	DYNAMIC_PREFIX          : '_moz-pseud-dynamic-',
+	DYNAMIC_HOVER           : '_moz-pseud-dynamic-hover',
+	DYNAMIC_HOVER_ANCESTOR  : 'ancestor::*[@_moz-pseud-dynamic-hover]',
+	DYNAMIC_FOCUS           : '_moz-pseud-dynamic-focus',
+	DYNAMIC_FOCUS_ANCESTOR  : 'ancestor::*[@_moz-pseud-dynamic-focus]',
+	DYNAMIC_ACTIVE          : '_moz-pseud-dynamic-active',
+	DYNAMIC_ACTIVE_ANCESTOR : 'ancestor::*[@_moz-pseud-dynamic-active]',
  
 	ATTR_INIT_CUE         : '_moz-textshadow-init-cue', 
 	ATTR_INIT_TIMER       : '_moz-textshadow-init-timer',
@@ -94,12 +107,12 @@ var TextShadowService = {
 		return nodes;
 	},
  
-	getJSValueFromAttribute : function(aElement, aAttribute) 
+	getJSValueFromAttribute : function(aNode, aAttribute) 
 	{
 		var value;
 		try {
-			var sandbox = Components.utils.Sandbox(aElement.ownerDocument.defaultView.location.href);
-			value = Components.utils.evalInSandbox(aElement.getAttribute(aAttribute), sandbox);
+			var sandbox = Components.utils.Sandbox(aNode.ownerDocument.defaultView.location.href);
+			value = Components.utils.evalInSandbox(aNode.getAttribute(aAttribute), sandbox);
 		}
 		catch(e) {
 		}
@@ -150,7 +163,7 @@ var TextShadowService = {
 	},
   
 /* CSS3 selector support */ 
-	
+	 
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
 		var nodes = [];
@@ -512,9 +525,9 @@ var TextShadowService = {
 							case 'visited':
 								if (self.silhouettePseud) {
 									var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-									foundElements = getElementsByCondition(function(aElement) {
-										var uri = aElement.href || aElement.getAttribute('href');
-										var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+									foundElements = getElementsByCondition(function(aNode) {
+										var uri = aNode.href || aNode.getAttribute('href');
+										var isLink = /^(link|a|area)$/i.test(aNode.localName) && uri;
 										var isVisited = false;
 										if (isLink) {
 											try {
@@ -524,24 +537,24 @@ var TextShadowService = {
 												dump(uri+' / '+self.makeURIFromSpec(uri));
 												dump(e+'\n');
 											}
-											if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
+											if (isVisited) aNode.setAttribute(self.VISITED, true);
 										}
 										return isLink && isVisited ? 1 : -1 ;
 									}, foundElements);
-									con[conCount++] = '@_moz-pseud-class-visited = "true"';
+									con[conCount++] = self.VISITED_CONDITION;
 									aSpecificity.condition++;
 									break;
 								}
 
 							case 'target':
 								if (self.silhouettePseud) {
-									foundElements = getElementsByCondition(function(aElement) {
+									foundElements = getElementsByCondition(function(aNode) {
 										(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-										var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-										if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+										var isTarget = RegExp.$1 && aNode.getAttribute('id') == decodeURIComponent(RegExp.$1);
+										if (isTarget) aNode.setAttribute(self.TARGET, true);
 										return isTarget ? 1 : -1 ;
 									}, foundElements);
-									con[conCount++] = '@_moz-pseud-class-target = "true"';
+									con[conCount++] = self.TARGET_CONDITION;
 									aSpecificity.condition++;
 									break;
 								}
@@ -550,8 +563,8 @@ var TextShadowService = {
 							case 'focus':
 							case 'active':
 								if (self.silhouettePseud) {
-									foundElements = getElementsByCondition(function(aElement) {
-										aElement.setAttribute('_moz-pseud-dynamic-'+pseud, true);
+									foundElements = getElementsByCondition(function(aNode) {
+										aNode.setAttribute(self.DYNAMIC_PREFIX+pseud, true);
 										return 1;
 									}, foundElements);
 									aSpecificity.condition++;
@@ -776,25 +789,56 @@ var TextShadowService = {
   
 /* draw shadow */ 
 	 
-	drawShadow : function(aElement) 
+	createShadowBox : function(aNode) 
 	{
-		var d = aElement.ownerDocument;
+		var d = aNode.ownerDocument;
 		var boxes = [];
 
-		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aElement);
+		var shadowBoxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aNode);
 		if (shadowBoxes.snapshotLength) {
+			var value = this.getJSValueFromAttribute(aNode, this.ATTR_STYLE);
+			var types = ['hover', 'focus', 'active'];
 			for (var i = 0, maxi = shadowBoxes.snapshotLength; i < maxi; i++)
 			{
 				var box = shadowBoxes.snapshotItem(i);
-				box.setAttribute(this.ATTR_STYLE_FOR_EACH, aElement.getAttribute(this.ATTR_STYLE));
+				var current = this.getJSValueFromAttribute(box, this.ATTR_STYLE_FOR_EACH) || {};
+
+				if (
+					value.normal &&
+					(
+						!current.normal ||
+						(
+							value.normal.nest > current.normal.nest ||
+							current.normal.specificity < value.normal.specificity
+						)
+					)
+					)
+					current.normal = value.normal;
+
+				for (var j in types)
+				{
+					if (!value[types[j]]) {
+						if (current[types[j]]) delete current[types[j]];
+					}
+					else if (
+						!current[types[j]] ||
+						(
+							value[types[j]].nest > current[types[j]].nest ||
+							current[types[j]].specificity < value[types[j]].specificity
+						)
+						)
+						current[types[j]] = value[types[j]];
+				}
+
+				box.setAttribute(this.ATTR_STYLE_FOR_EACH, current.toSource());
 				boxes.push(box);
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aElement);
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aNode);
 			var wrapper = d.createElement(this.SHADOW);
 			wrapper.setAttribute('class', this.SHADOW_CLASS);
-			wrapper.setAttribute(this.ATTR_STYLE_FOR_EACH, aElement.getAttribute(this.ATTR_STYLE));
+			wrapper.setAttribute(this.ATTR_STYLE_FOR_EACH, aNode.getAttribute(this.ATTR_STYLE));
 			for (var i = 0, maxi = textNodes.snapshotLength; i < maxi; i++)
 			{
 				var node = textNodes.snapshotItem(i);
@@ -835,10 +879,10 @@ var TextShadowService = {
 				return id;
 			}));
 		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
-		this.startDraw(d.defaultView);
+		this.startAllDraw(d.defaultView);
 	},
-	 
-	startDraw : function(aFrame) 
+ 	
+	startAllDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
 		var cues = this.getJSValueFromAttribute(node, this.ATTR_DRAW_CUE);
@@ -852,7 +896,7 @@ var TextShadowService = {
 		timerId = aFrame.setTimeout(this.delayedDraw, 0, this, aFrame);
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
-	 
+ 
 	delayedDraw : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -866,6 +910,8 @@ var TextShadowService = {
 
 		var lastParent;
 		var info;
+		var types = ['hover', 'focus', 'active'];
+		var expressions  = [aSelf.DYNAMIC_HOVER_ANCESTOR, aSelf.DYNAMIC_FOCUS_ANCESTOR, aSelf.DYNAMIC_ACTIVE_ANCESTOR];
 		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
 		{
 			var cue = aFrame.document.getElementById(cues.splice(0, 1));
@@ -878,34 +924,23 @@ var TextShadowService = {
 				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE_FOR_EACH);
 				if (info) {
 					if (info.normal) {
-						for (var j = 0, maxj = info.normal.shadows.length; j < maxj; j++)
-						{
-							aSelf.drawOneShadow(
-								cue,
-								info.normal.shadows[j].x,
-								info.normal.shadows[j].y,
-								info.normal.shadows[j].radius,
-								info.normal.shadows[j].color,
-								info.normal.type,
-								info.normal.isUserStyle
-							);
-						}
+						aSelf.drawShadows(cue, info.normal);
 					}
-					if (info.hover) {
-						var listener = new TextShadowDynamicEventListener(cue, info.hover);
-						cue.addEventListener('mouseover', listener, false);
-						aFrame.addEventListener('unload', listener, false);
-					}
-					if (info.active) {
-						var listener = new TextShadowDynamicEventListener(cue, info.active);
-						cue.addEventListener('mousedown', listener, false);
-						cue.addEventListener('keydown',   listener, false);
-						aFrame.addEventListener('unload', listener, false);
-					}
-					if (info.focus) {
-						var listener = new TextShadowDynamicEventListener(cue, info.focus);
-						cue.addEventListener('focus', listener, false);
-						aFrame.addEventListener('unload', listener, false);
+					for (var j in types)
+					{
+						if (
+							!info[types[j]] ||
+							(
+								info.normal &&
+								info.normal.specificity > info[types[j]].specificity
+							)
+							)
+							continue;
+						new TextShadowDynamicEventListener(
+							cue,
+							aSelf.getNodesByXPath(expressions[j], cue).snapshotItem(0),
+							info[types[j]]
+						);
 					}
 				}
 			}
@@ -921,186 +956,23 @@ var TextShadowService = {
 		var timerId = aFrame.setTimeout(aSelf.delayedDraw, 0, aSelf, aFrame);
 		node.setAttribute(aSelf.ATTR_DRAW_TIMER, timerId);
 	},
-  
-	initShadowBox : function(aNode) 
-	{
-		var d = aNode.ownerDocument;
-		var w = d.defaultView;
-		var p = aNode.parentNode;
-
-		var innerBox = d.getAnonymousNodes(aNode)[0];
-		if (innerBox.hasAttribute('initialized')) return;
-
-		var innerContents = innerBox.childNodes;
-
-		innerBox.setAttribute('initialized', true);
-
-		innerContents[0].setAttribute('style',
-			'visibility: hidden !important;'
-			+ '-moz-user-select: -moz-none !important;'
-			+ '-moz-user-focus: ignore !important;'
-		);
-		innerContents[1].setAttribute('style',
-			'position: absolute !important;'
-			+ 'top: 0 !important;'
-			+ 'left: 0 !important;'
-		);
-
-		var originalAnchor    = innerContents[0].lastChild;
-		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
-		var baseAnchor        = innerContents[1].lastChild;
-		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
-
-		var nodes = aNode.childNodes;
-		var f = d.createDocumentFragment();
-		for (var i = 0, maxi = nodes.length; i < maxi; i++)
-		{
-			f.appendChild(nodes[i].cloneNode(true));
-		}
-		innerContents[0].insertBefore(f, originalAnchor);
-
-
-		var xOffset   = 0;
-		var yOffset   = 0;
-
-		var context = w.getComputedStyle(p, null).getPropertyValue('display');
-		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? p : aNode );
-		var hasFollowingExpression = 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]';
-		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+hasFollowingExpression, aNode).snapshotLength;
-		if (
-			context != 'none' &&
-			(context.indexOf('table-') == 0 || hasSiblingNodes)
-			)
-			context = 'inline';
-
-		var info       = this.getSizeBox(context == 'inline' ? aNode : p );
-		var parentBox  = info.sizeBox;
-		var lineHeight = this.getComputedPixels(innerContents[0], 'line-height');
-		var fontSize   = this.getComputedPixels(aNode, 'font-size');
-		var width      = info.width;
-		var indent     = 0;
-
-		switch (context)
-		{
-			case 'none':
-				return;
-			case 'inline':
-				yOffset -= Math.round((lineHeight - fontSize) / 2);
-				var parentBoxObject = d.getBoxObjectFor(parentBox);
-				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
-					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
-					xOffset -= delta;
-					indent += delta;
-					width = info.boxWidth;
-				}
-				break;
-			default:
-				if (this.positionQuality < 1) break;
-
-				var dummy1 = d.createElement(this.DUMMY);
-				dummy1.appendChild(d.createTextNode('!'));
-				var dummy2 = dummy1.cloneNode(true);
-				dummy1.setAttribute('style', 'position: absolute; top: 0; left: 0;');
-
-				var f = d.createDocumentFragment();
-				f.appendChild(dummy1);
-				f.appendChild(dummy2);
-				innerBox.appendChild(f);
-				yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
-				innerBox.removeChild(dummy1);
-				innerBox.removeChild(dummy2);
-				break;
-		}
-
-		var renderingStyle = 'position: absolute !important;'
-			+ 'margin: 0 !important;'
-			+ 'padding: 0 !important;';
-
-		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
-
-		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
-		if (parentBox == p && !hasSiblingNodes) {
-			indent += info.indent;
-			xOffset -= info.indent;
-			if (align != 'left' && align != 'start' && align != 'justify' &&
-				context == 'block') {
-				xOffset -= d.getBoxObjectFor(aNode).screenX - info.boxX - info.indent;
-			}
-		}
-
-		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
-			yOffset += this.getComputedPixels(parentBox, 'margin-top');
-
-		width = Math.min(width, info.boxWidth);
-
-		var style = innerContents[1].style;
-		style.cssText = renderingStyle
-			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
-			+ 'text-indent: '+indent+'px !important;'
-			+ 'z-index: 2 !important;'
-			+ 'top: ' + yOffset + 'px !important;'
-			+ 'bottom: ' + (-yOffset) + 'px !important;'
-			+ 'left: ' + xOffset + 'px !important;'
-			+ 'right: ' + (-xOffset) + 'px !important;';
-
-
-		/*
-			font-weightがboldだと、BoxObjectの幅と実際の幅が
-			一致しなくなることがある（Gecko 1.8のバグ？）。
-			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
-			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
-		*/
-		var lastLineY = originalAnchorBox.screenY;
-		var origBox   = d.getBoxObjectFor(innerContents[0]);
-		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
-			var dy = origBox.screenY - d.getBoxObjectFor(innerContents[1]).screenY;
-			var c = 0;
-			while (
-				c++ < 100 &&
-				d.getBoxObjectFor(baseAnchor).screenY - lastLineY >= lineHeight &&
-				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
-				)
-			{
-				style.width = (++width)+'px !important';
-			}
-		}
-
-
-		var endOffset = 0;
-		if (
-			align != 'left' && align != 'start' && align != 'justify' &&
-			(
-				this.getNodesByXPath(hasFollowingExpression , aNode).snapshotLength ||
-				(
-					parentBox != p &&
-					this.getNodesByXPath(hasFollowingExpression , p).snapshotLength
-				)
-			)
-			) {
-			var x = originalAnchorBox.screenX;
-			endOffset = info.boxX + info.boxWidth - x;
-			baseAnchor.style.paddingRight = endOffset+'px !important';
-			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
-			{
-				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
-			}
-			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
-			{
-				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
-			}
-		}
-
-		innerBox.setAttribute('rendering-style', renderingStyle);
-		innerBox.setAttribute('x-offset',        xOffset);
-		innerBox.setAttribute('y-offset',        yOffset);
-		innerBox.setAttribute('end-offset',      endOffset);
-		innerBox.setAttribute('context',         context);
-		innerBox.setAttribute('indent',          indent);
-		innerBox.setAttribute('width',           width);
-		innerBox.setAttribute('box-width',       info.boxWidth);
-		innerBox.setAttribute('box-height',      info.boxHeight);
-	},
  
+	drawShadows : function(aNode, aInfo) 
+	{
+		for (var i = 0, maxi = aInfo.shadows.length; i < maxi; i++)
+		{
+			this.drawOneShadow(
+				aNode,
+				aInfo.shadows[i].x,
+				aInfo.shadows[i].y,
+				aInfo.shadows[i].radius,
+				aInfo.shadows[i].color,
+				aInfo.type,
+				aInfo.isUserStyle
+			);
+		}
+	},
+	 
 	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aType, aIsUserStyle) 
 	{
 		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
@@ -1133,7 +1005,12 @@ var TextShadowService = {
 		if (radius != 1) radius *= 1.2; // to show like Safari
 
 		var opacity = 1 / radius;
-		if (radius != 1) opacity *= 0.35; // to show like Safari
+
+		if (radius != 1) { // to show like Safari
+			opacity *= 0.3;
+			x *= 0.8;
+			y *= 0.8;
+		}
 
 		if (!aColor && aIsUserStyle && this.autoColorUser) {
 			w.getComputedStyle(aNode, null).getPropertyValue('color').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
@@ -1197,8 +1074,10 @@ var TextShadowService = {
 			+ 'text-decoration: none !important;'
 			+ 'color: ' + color + ' !important;'
 		);
-		if (aType)
+		if (aType) {
 			shadows.setAttribute('type', aType);
+			innerBox.setAttribute('has-'+aType, true);
+		}
 
 		var nodes  = aNode.childNodes;
 		var part   = d.createElement(this.SHADOW_PART);
@@ -1240,6 +1119,186 @@ var TextShadowService = {
 		}
 
 		innerBox.appendChild(shadows);
+	},
+	 
+	initShadowBox : function(aNode) 
+	{
+		var d = aNode.ownerDocument;
+		var w = d.defaultView;
+		var p = aNode.parentNode;
+
+		var innerBox = d.getAnonymousNodes(aNode)[0];
+		if (innerBox.hasAttribute('initialized')) return;
+
+		var originalContainer = innerBox.childNodes[0];
+		var baseContainer     = innerBox.childNodes[1];
+
+		innerBox.setAttribute('initialized', true);
+
+		originalContainer.setAttribute('style',
+			'visibility: hidden !important;'
+			+ '-moz-user-select: -moz-none !important;'
+			+ '-moz-user-focus: ignore !important;'
+		);
+		baseContainer.setAttribute('style',
+			'position: absolute !important;'
+			+ 'top: 0 !important;'
+			+ 'left: 0 !important;'
+		);
+
+		var originalAnchor    = originalContainer.lastChild;
+		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
+		var baseAnchor        = baseContainer.lastChild;
+		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
+
+		var nodes = aNode.childNodes;
+		var f = d.createDocumentFragment();
+		for (var i = 0, maxi = nodes.length; i < maxi; i++)
+		{
+			f.appendChild(nodes[i].cloneNode(true));
+		}
+		originalContainer.insertBefore(f, originalAnchor);
+
+
+		var xOffset   = 0;
+		var yOffset   = 0;
+
+		var context = w.getComputedStyle(p, null).getPropertyValue('display');
+		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? p : aNode );
+		var hasFollowingExpression = 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]';
+		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+hasFollowingExpression, aNode).snapshotLength;
+		if (
+			context != 'none' &&
+			(context.indexOf('table-') == 0 || hasSiblingNodes)
+			)
+			context = 'inline';
+
+		var info       = this.getSizeBox(context == 'inline' ? aNode : p );
+		var parentBox  = info.sizeBox;
+		var lineHeight = this.getComputedPixels(originalContainer, 'line-height');
+		var fontSize   = this.getComputedPixels(aNode, 'font-size');
+		var width      = info.width;
+		var indent     = 0;
+
+		switch (context)
+		{
+			case 'none':
+				return;
+			case 'inline':
+				yOffset -= Math.round((lineHeight - fontSize) / 2);
+				var parentBoxObject = d.getBoxObjectFor(parentBox);
+				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
+					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
+					xOffset -= delta;
+					indent += delta;
+					width = info.boxWidth;
+				}
+				break;
+			default:
+				if (this.positionQuality < 1) break;
+
+				var dummy1 = d.createElement(this.DUMMY);
+				dummy1.appendChild(d.createTextNode('!'));
+				var dummy2 = dummy1.cloneNode(true);
+				dummy1.setAttribute('style', 'position: absolute; top: 0; left: 0;');
+
+				var f = d.createDocumentFragment();
+				f.appendChild(dummy1);
+				f.appendChild(dummy2);
+				innerBox.appendChild(f);
+				yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
+				innerBox.removeChild(dummy1);
+				innerBox.removeChild(dummy2);
+				break;
+		}
+
+		var renderingStyle = 'position: absolute !important;'
+			+ 'margin: 0 !important;'
+			+ 'padding: 0 !important;';
+
+		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
+
+		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
+		if (parentBox == p && !hasSiblingNodes) {
+			indent += info.indent;
+			xOffset -= info.indent;
+			if (align != 'left' && align != 'start' && align != 'justify' &&
+				context == 'block') {
+				xOffset -= d.getBoxObjectFor(aNode).screenX - info.boxX - info.indent;
+			}
+		}
+
+		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
+			yOffset += this.getComputedPixels(parentBox, 'margin-top');
+
+		width = Math.min(width, info.boxWidth);
+
+		var style = baseContainer.style;
+		style.cssText = renderingStyle
+			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
+			+ 'text-indent: '+indent+'px !important;'
+			+ 'z-index: 2 !important;'
+			+ 'top: ' + yOffset + 'px !important;'
+			+ 'bottom: ' + (-yOffset) + 'px !important;'
+			+ 'left: ' + xOffset + 'px !important;'
+			+ 'right: ' + (-xOffset) + 'px !important;';
+
+
+		/*
+			font-weightがboldだと、BoxObjectの幅と実際の幅が
+			一致しなくなることがある（Gecko 1.8のバグ？）。
+			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
+			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
+		*/
+		var lastLineY = originalAnchorBox.screenY;
+		var origBox   = d.getBoxObjectFor(originalContainer);
+		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
+			var dy = origBox.screenY - d.getBoxObjectFor(baseContainer).screenY;
+			var c = 0;
+			while (
+				c++ < 100 &&
+				d.getBoxObjectFor(baseAnchor).screenY - lastLineY >= lineHeight &&
+				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
+				)
+			{
+				style.width = (++width)+'px !important';
+			}
+		}
+
+
+		var endOffset = 0;
+		if (
+			align != 'left' && align != 'start' && align != 'justify' &&
+			(
+				this.getNodesByXPath(hasFollowingExpression , aNode).snapshotLength ||
+				(
+					parentBox != p &&
+					this.getNodesByXPath(hasFollowingExpression , p).snapshotLength
+				)
+			)
+			) {
+			var x = originalAnchorBox.screenX;
+			endOffset = info.boxX + info.boxWidth - x;
+			baseAnchor.style.paddingRight = endOffset+'px !important';
+			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
+			{
+				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+			}
+			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
+			{
+				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+			}
+		}
+
+		innerBox.setAttribute('rendering-style', renderingStyle);
+		innerBox.setAttribute('x-offset',        xOffset);
+		innerBox.setAttribute('y-offset',        yOffset);
+		innerBox.setAttribute('end-offset',      endOffset);
+		innerBox.setAttribute('context',         context);
+		innerBox.setAttribute('indent',          indent);
+		innerBox.setAttribute('width',           width);
+		innerBox.setAttribute('box-width',       info.boxWidth);
+		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
  
 	getSizeBox : function(aNode) 
@@ -1360,8 +1419,8 @@ var TextShadowService = {
 
 		return 0;
 	},
-  
-	clearShadow : function(aNode) 
+   
+	clearShadowBox : function(aNode) 
 	{
 		var boxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aNode);
 		for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
@@ -1382,54 +1441,9 @@ var TextShadowService = {
 		aNode.parentNode.insertBefore(f, aNode);
 		aNode.parentNode.removeChild(aNode);
 	},
-  
-	startInitialize : function(aFrame) 
-	{
-		var node = aFrame.document.documentElement;
-		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
-		if (!cues || !cues.length)
-			return;
-
-		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
-		if (timerId) {
-			aFrame.clearTimeout(timerId);
-		}
-		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame);
-		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
-	},
-	
-	delayedInitialize : function(aSelf, aFrame) 
-	{
-		var node = aFrame.document.documentElement;
-		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
-
-		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
-		if (!cues || !cues.length) {
-			node.removeAttribute(aSelf.ATTR_INIT_CUE);
-			return;
-		}
-
-		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
-		{
-			var cue = aFrame.document.getElementById(cues.splice(0, 1));
-			if (!cue) {
-				i--;
-				continue;
-			}
-
-			aSelf.clearShadow(cue);
-			aSelf.drawShadow(cue);
-
-			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
-				cue.removeAttribute('id');
-		}
-
-		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
-
-		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame);
-		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
-	},
-  
+   
+/* update shadow */ 
+	 
 	updateShadowForFrame : function(aFrame, aReason) 
 	{
 		if (!this.shadowEnabled) return;
@@ -1629,7 +1643,8 @@ var TextShadowService = {
 				specificity : specificity,
 				important   : important,
 				type        : 'normal',
-				isUserStyle : false
+				isUserStyle : false,
+				nest        : this.getNodesByXPath('ancestor::*', node).snapshotLength
 			};
 
 			node.setAttribute(this.ATTR_STYLE, value.toSource());
@@ -1732,13 +1747,14 @@ var TextShadowService = {
 						shadows     : array,
 						specificity : specificity,
 						important   : important,
-						isUserStyle : isUserStyle
+						isUserStyle : isUserStyle,
+						nest        : this.getNodesByXPath('ancestor::*', nodes[j]).snapshotLength
 					};
 
 					nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
 
-//					if (spec.specificities[i].selector.indexOf(':first-letter') > -1) {
-//					}
+					if (spec.specificities[i].selector.indexOf(':first-letter') > -1) {
+					}
 
 					foundNodes[foundCount++] = nodes[j];
 				}
@@ -1761,6 +1777,53 @@ var TextShadowService = {
 		{
 			this.updateShadow(tabs[i], aTabBrowser, aReason);
 		}
+	},
+ 
+	startInitialize : function(aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
+		if (!cues || !cues.length)
+			return;
+
+		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
+		}
+		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame);
+		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
+	},
+ 
+	delayedInitialize : function(aSelf, aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
+
+		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
+		if (!cues || !cues.length) {
+			node.removeAttribute(aSelf.ATTR_INIT_CUE);
+			return;
+		}
+
+		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
+		{
+			var cue = aFrame.document.getElementById(cues.splice(0, 1));
+			if (!cue) {
+				i--;
+				continue;
+			}
+
+//			aSelf.clearShadowBox(cue);
+			aSelf.createShadowBox(cue);
+
+			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
+				cue.removeAttribute('id');
+		}
+
+		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
+
+		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame);
+		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
 	},
   
 /* Initializing */ 
@@ -2182,56 +2245,53 @@ TextShadowPrefListener.prototype = {
 	}
 };
  
-function TextShadowDynamicEventListener(aTarget, aInfo) 
+function TextShadowDynamicEventListener(aShadowBox, aTarget, aInfo) 
 {
+	this.shadow = aShadowBox;
 	this.target = aTarget;
 	this.info   = aInfo;
-	this.type   = aInfo.type;
+	switch (this.info.type)
+	{
+		case 'hover':
+			this.target.addEventListener('mouseover', this, false);
+			break;
+		case 'focus':
+			this.target.addEventListener('focus', this, false);
+			break;
+		case 'active':
+			this.target.addEventListener('mousedown', this, false);
+			this.target.addEventListener('keydown', this, false);
+			break;
+	}
+	this.target.ownerDocument.defaultView.addEventListener('unload', this, false);
 }
 TextShadowDynamicEventListener.prototype = {
+	shadow      : null,
 	target      : null,
 	info        : null,
-	type        : null,
 	handleEvent : function(aEvent)
 	{
 		this.target.ownerDocument.defaultView.removeEventListener('unload', this, false);
-		switch (this.type)
+		switch (this.info.type)
 		{
-			case 'mouseover':
-			case 'focus':
-				this.target.removeEventListener(this.type, this, false);
+			case 'hover':
+				this.target.removeEventListener('mouseover', this, false);
 				break;
-
-			case 'mousedown':
-			case 'keydown':
+			case 'focus':
+				this.target.removeEventListener('focus', this, false);
+				break;
+			case 'active':
 				this.target.removeEventListener('mousedown', this, false);
 				this.target.removeEventListener('keydown', this, false);
 				break;
 		}
-		if (aEvent.type == 'unload') {
-			delete this.info;
-			delete this.target;
-			delete this.type;
-			return;
+		if (aEvent.type != 'unload') {
+			TextShadowService.drawShadows(this.shadow, this.info);
 		}
-
-		for (var i = 0, maxi = this.info.shadows.length; i < maxi; i++)
-		{
-			TextShadowService.drawOneShadow(
-				this.target,
-				this.info.shadows[i].x,
-				this.info.shadows[i].y,
-				this.info.shadows[i].radius,
-				this.info.shadows[i].color,
-				this.info.type,
-				this.info.isUserStyle
-			);
-		}
-
 		delete this.info;
+		delete this.shadow;
 		delete this.target;
-		delete this.type;
 	}
 };
 
- 	
+ 

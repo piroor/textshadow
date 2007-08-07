@@ -1776,7 +1776,7 @@ var TextShadowService = {
 		return foundNodes;
 	},
    
-	updateShadow : function(aTab, aTabBrowser, aReason) 
+	updateShadowForTab : function(aTab, aTabBrowser, aReason) 
 	{
 		if (
 			aTab.linkedBrowser.markupDocumentViewer.authorStyleDisabled &&
@@ -1788,12 +1788,12 @@ var TextShadowService = {
 		this.updateShadowForFrame(w, aReason);
 	},
  
-	updateAllShadows : function(aTabBrowser, aReason) 
+	updateShadowForTabBrowser : function(aTabBrowser, aReason) 
 	{
 		var tabs = aTabBrowser.mTabContainer.childNodes;
 		for (var i = 0, maxi = tabs.length; i < maxi; i++)
 		{
-			this.updateShadow(tabs[i], aTabBrowser, aReason);
+			this.updateShadowForTab(tabs[i], aTabBrowser, aReason);
 		}
 	},
  
@@ -1970,10 +1970,10 @@ var TextShadowService = {
 	{
 		var TSS = TextShadowService;
 		if (aDisable)
-			TSS.updateAllShadows(TSS.browser, TSS.UPDATE_STYLE_DISABLE);
+			TSS.updateShadowForTabBrowser(TSS.browser, TSS.UPDATE_STYLE_DISABLE);
 		window.__textshadow__setStyleDisabled.apply(window, arguments);
 		if (!aDisable)
-			TSS.updateAllShadows(TSS.browser, TSS.UPDATE_STYLE_ENABLE);
+			TSS.updateShadowForTabBrowser(TSS.browser, TSS.UPDATE_STYLE_ENABLE);
 	},
  	 
 	destroy : function() 
@@ -2247,7 +2247,7 @@ TextShadowBrowserEventListener.prototype = {
 		switch (aEvent.type)
 		{
 			case 'resize':
-				TSS.updateAllShadows(this.mTabBrowser, TSS.UPDATE_RESIZE);
+				TSS.updateShadowForTabBrowser(this.mTabBrowser, TSS.UPDATE_RESIZE);
 				break;
 		}
 	}
@@ -2270,7 +2270,7 @@ TextShadowPrefListener.prototype = {
 		{
 			case 'extensions.textshadow.enabled':
 				if (TSS.initialized)
-					TSS.updateAllShadows(this.mTabBrowser, TSS.UPDATE_INIT);
+					TSS.updateShadowForTabBrowser(this.mTabBrowser, TSS.UPDATE_INIT);
 				break;
 
 			default:

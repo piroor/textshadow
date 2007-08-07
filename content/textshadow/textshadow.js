@@ -1778,6 +1778,12 @@ var TextShadowService = {
    
 	updateShadow : function(aTab, aTabBrowser, aReason) 
 	{
+		if (
+			aTab.linkedBrowser.markupDocumentViewer.authorStyleDisabled &&
+			aReason != this.UPDATE_STYLE_ENABLE
+			)
+			return;
+
 		var w = aTab.linkedBrowser.contentWindow;
 		this.updateShadowForFrame(w, aReason);
 	},

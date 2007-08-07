@@ -1099,7 +1099,7 @@ var TextShadowService = {
 		if (radius != 1) opacity *= 0.35; // to show like Safari
 
 		if (!aColor && aIsUserStyle && this.autoColorUser) {
-			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(w.getComputedStyle(aNode, null).getPropertyValue('color'));
+			w.getComputedStyle(aNode, null).getPropertyValue('color').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
 			var fgRGB = [
 					Number(RegExp.$1),
 					Number(RegExp.$2),
@@ -1114,7 +1114,7 @@ var TextShadowService = {
 				bg = w.getComputedStyle(bgNode, null).getPropertyValue('background-color');
 			}
 			if (!bg) bg = 'rgb(255,255,255)';
-			/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i.test(bg);
+			bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
 			var bgRGB = [
 					Number(RegExp.$1),
 					Number(RegExp.$2),
@@ -1675,7 +1675,7 @@ var TextShadowService = {
 				default:
 					if (rules[i] != '[object CSSMozDocumentRule]') continue;
 
-					/@-moz-document\s+([^\{]+)/i.test(rules[i].cssText.replace(/[\n\r]/g, ''));
+					rules[i].cssText.replace(/[\n\r]/g, '').match(/@-moz-document\s+([^\{]+)/i);
 					var list = RegExp.$1.split(/\s*,\s*/);
 					var match = false;
 					var regexp = new RegExp();

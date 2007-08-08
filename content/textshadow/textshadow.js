@@ -1037,23 +1037,25 @@ var TextShadowService = {
 					Number(RegExp.$3)
 				];
 
-			// 元の色の明るさを調査
-			// なお、グレースケールへの変換式はこちらのサイトより引用。
+			// グレースケールへの変換式はこちらのサイトより引用。
 			// http://www.geocities.co.jp/Milkyway/4171/graphics/002-6.html
 			// check the brightness of the color
 			var fgBright = Math.floor(((299*fgRGB[0])+(582*fgRGB[1])+(114*fgRGB[2]))/1000);
 			var bgBright = Math.floor(((299*bgRGB[0])+(582*bgRGB[1])+(114*bgRGB[2]))/1000);
 
-			aColor = (fgBright < 85 && bgBright < 85) ? 'white' :
-					(fgBright < 85 && bgBright < 170) ? 'black' :
-					(fgBright < 85) ? 'gray' :
-					(fgBright < 170 && bgBright < 85) ? 'white' :
-					(fgBright < 170 && bgBright < 170) ? 'black' :
-					(fgBright < 170) ? 'gray' :
+			aColor = (fgBright < 85) ? (
+						(bgBright < 85) ? 'white' :
+						(bgBright < 170) ? 'black' :
+						'gray'
+					) :
+					(fgBright < 170) ? (
+						(bgBright < 85) ? 'white' :
+						(bgBright < 170) ? 'black' :
+						'gray'
+					) :
 					(bgBright < 85) ? 'black' :
 					(bgBright < 170) ? 'black' :
 					'gray' ;
-//			dump(w.getComputedStyle(aNode, null).getPropertyValue('color')+' / '+bg+'('+fgBright+','+bgBright+') => '+aColor+'\n');
 		}
 
 		var color = (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color'));
@@ -1543,7 +1545,6 @@ var TextShadowService = {
 	parseTextShadowValue : function(aValue) 
 	{
 		var array = [];
-
 		aValue = String(aValue)
 				.replace(/^\s+|\s+$/gi, '')
 				.replace(/\s*!\s*important/i, '')
@@ -1561,11 +1562,14 @@ var TextShadowService = {
 					color  : null
 				};
 
+			var currentColor;
+
 			if (value.length > 1 || value[0].toLowerCase() != 'none') {
 				value = value.replace(/\//g, ',');
-				/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i.test(value);
-				var currentColor = RegExp.$1;
-				if (currentColor) {
+				if (
+					value.match(/(\#[0-9a-f]{6}|\#[0-9a-f]{3}|(rgb|hsb)a?\([^\)]*\)|\b[a-z]+\b)/i) &&
+					(currentColor = RegExp.$1)
+					) {
 					shadow.color = currentColor.replace(/^\s+/, '');
 					value = value.replace(shadow.color, '');
 				}
@@ -1821,7 +1825,10 @@ var TextShadowService = {
 		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
 
 		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
-		if (!cues || !cues.length) {
+		if (
+			!cues || !cues.length ||
+			aFrame.document.designMode == 'on'
+			) {
 			node.removeAttribute(aSelf.ATTR_INIT_CUE);
 			return;
 		}

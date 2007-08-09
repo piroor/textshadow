@@ -20,7 +20,7 @@ var TextShadowService = {
 	UPDATE_STYLE_DISABLE  : 5,
 	 
 /* coustructions */ 
-	 
+	
 	ID_PREFIX             : '_moz-textshadow-temp-', 
  
 	SHADOW                : 'span', 
@@ -62,7 +62,8 @@ var TextShadowService = {
 	ATTR_STYLE_FOR_EACH   : '_moz-textshadow-part-style',
 	ATTR_CACHE            : '_moz-textshadow',
 	ATTR_DONE             : '_moz-textshadow-done',
-	ATTR_LAST_WIDTH      : '_moz-textshadow-last-width',
+	ATTR_LAST_WIDTH       : '_moz-textshadow-last-width',
+	ATTR_ID               : '_moz-textshadow-id',
   
 /* Utilities */ 
 	
@@ -165,7 +166,7 @@ var TextShadowService = {
 	},
   
 /* CSS3 selector support */ 
-	 
+	
 	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
 	{
 		var nodes = [];
@@ -790,8 +791,8 @@ var TextShadowService = {
 	},
   
 /* draw shadow */ 
-	 
-	createShadowBox : function(aNode) 
+	
+	setShadow : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
 		var boxes = [];
@@ -883,7 +884,7 @@ var TextShadowService = {
 		d.documentElement.setAttribute(this.ATTR_DRAW_CUE, cues.toSource());
 		this.startAllDraw(d.defaultView);
 	},
- 
+	 
 	startAllDraw : function(aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -911,9 +912,6 @@ var TextShadowService = {
 		}
 
 		var lastParent;
-		var info;
-		var types = ['hover', 'focus', 'active'];
-		var expressions  = [aSelf.DYNAMIC_HOVER_ANCESTOR, aSelf.DYNAMIC_FOCUS_ANCESTOR, aSelf.DYNAMIC_ACTIVE_ANCESTOR];
 		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
 		{
 			var cue = aFrame.document.getElementById(cues.splice(0, 1));
@@ -923,33 +921,11 @@ var TextShadowService = {
 			}
 
 			try {
-				var info = aSelf.getJSValueFromAttribute(cue, aSelf.ATTR_STYLE_FOR_EACH);
-				if (info) {
-					if (info.normal) {
-						aSelf.drawShadows(cue, info.normal);
-					}
-					for (var j in types)
-					{
-						if (
-							!info[types[j]] ||
-							(
-								info.normal &&
-								info.normal.specificity > info[types[j]].specificity
-							)
-							)
-							continue;
-						new TextShadowDynamicEventListener(
-							cue,
-							aSelf.getNodesByXPath(expressions[j], cue).snapshotItem(0),
-							info[types[j]]
-						);
-					}
-				}
+				TextShadowBoxService.draw(cue);
 			}
 			catch(e) {
 				dump(e+'\n');
 			}
-
 			cue.removeAttribute('id');
 		}
 
@@ -958,494 +934,16 @@ var TextShadowService = {
 		var timerId = aFrame.setTimeout(aSelf.delayedDraw, 0, aSelf, aFrame);
 		node.setAttribute(aSelf.ATTR_DRAW_TIMER, timerId);
 	},
- 
-	drawShadows : function(aNode, aInfo) 
-	{
-		for (var i = 0, maxi = aInfo.shadows.length; i < maxi; i++)
-		{
-			this.drawOneShadow(
-				aNode,
-				aInfo.shadows[i].x,
-				aInfo.shadows[i].y,
-				aInfo.shadows[i].radius,
-				aInfo.shadows[i].color,
-				aInfo.type,
-				aInfo.isUserStyle
-			);
-		}
-	},
-	
-	drawOneShadow : function(aNode, aX, aY, aRadius, aColor, aType, aIsUserStyle) 
-	{
-		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
-			this.clearOneShadow(aNode);
-			return;
-		}
-
-		var d = aNode.ownerDocument;
-		var w = d.defaultView;
-
-		var innerBox = d.getAnonymousNodes(aNode)[0];
-		if (!innerBox.hasAttribute('initialized')) this.initShadowBox(aNode);
-
-		var boxWidth  = parseInt(innerBox.getAttribute('box-width'));
-		var boxHeight = parseInt(innerBox.getAttribute('box-height'));
-
-		var x      = this.convertToPixels((aX || 0), boxWidth, aNode);
-		var y      = this.convertToPixels((aY || 0), boxHeight, aNode);
-		var radius = this.convertToPixels((aRadius || 0), boxWidth, aNode);
-
-		var quality = 0;
-		var gap;
-		do {
-			gap = quality;
-			quality++;
-			radius = Math.max(Math.max(radius, 1) / quality, 1);
-		}
-		while (radius != 1 && (radius * radius) > 30)
-
-		if (radius != 1) radius *= 1.2; // to show like Safari
-
-		var opacity = 1 / radius;
-
-		if (radius != 1) { // to show like Safari
-			opacity *= 0.3;
-			x *= 0.8;
-			y *= 0.8;
-		}
-
-		if (!aColor && aIsUserStyle && this.autoColorUser) {
-			w.getComputedStyle(aNode, null).getPropertyValue('color').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
-			var fgRGB = [
-					Number(RegExp.$1),
-					Number(RegExp.$2),
-					Number(RegExp.$3)
-				];
-
-			var bg = null;
-			var bgNode = aNode.parentNode;
-			while (bg == 'transparent' && bgNode.parentNode)
-			{
-				bgNode = bgNode.parentNode;
-				bg = w.getComputedStyle(bgNode, null).getPropertyValue('background-color');
-			}
-			if (!bg) bg = 'rgb(255,255,255)';
-			bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
-			var bgRGB = [
-					Number(RegExp.$1),
-					Number(RegExp.$2),
-					Number(RegExp.$3)
-				];
-
-			// グレースケールへの変換式はこちらのサイトより引用。
-			// http://www.geocities.co.jp/Milkyway/4171/graphics/002-6.html
-			// check the brightness of the color
-			var fgBright = Math.floor(((299*fgRGB[0])+(582*fgRGB[1])+(114*fgRGB[2]))/1000);
-			var bgBright = Math.floor(((299*bgRGB[0])+(582*bgRGB[1])+(114*bgRGB[2]))/1000);
-
-			aColor = (fgBright < 85) ? (
-						(bgBright < 85) ? 'white' :
-						(bgBright < 170) ? 'black' :
-						'gray'
-					) :
-					(fgBright < 170) ? (
-						(bgBright < 85) ? 'white' :
-						(bgBright < 170) ? 'black' :
-						'gray'
-					) :
-					(bgBright < 85) ? 'black' :
-					(bgBright < 170) ? 'black' :
-					'gray' ;
-		}
-
-		var color = (aColor || w.getComputedStyle(aNode, null).getPropertyValue('color'));
-
-
-		var xOffset = parseInt(innerBox.getAttribute('x-offset'));
-		var yOffset = parseInt(innerBox.getAttribute('y-offset'));
-		var shadows = d.createElement(this.SHADOW_CONTAINER);
-		shadows.setAttribute('style',
-			innerBox.getAttribute('rendering-style')
-			+ 'text-indent: '+innerBox.getAttribute('indent')+'px !important;'
-			+ 'width: '+innerBox.getAttribute('width')+'px !important;'
-			+ 'z-index: 1 !important;'
-			+ 'top: ' + (yOffset+y-(radius / 2)) + 'px !important;'
-			+ 'bottom: ' + (-(yOffset+y-(radius / 2))) + 'px !important;'
-			+ 'left: ' + (xOffset+x-(radius / 2)) + 'px !important;'
-			+ 'right: ' + (-(xOffset+x-(radius / 2))) + 'px !important;'
-			+ '-moz-user-select: -moz-none !important;'
-			+ '-moz-user-focus: ignore !important;'
-			+ 'text-decoration: none !important;'
-			+ 'color: ' + color + ' !important;'
-		);
-		if (aType) {
-			shadows.setAttribute('type', aType);
-			innerBox.setAttribute('has-'+aType, true);
-		}
-
-		var nodes  = aNode.childNodes;
-		var part   = d.createElement(this.SHADOW_PART);
-
-		var anchor;
-		var endOffset = innerBox.getAttribute('end-offset');
-		if (endOffset != '0') {
-			anchor = d.createElement(this.DUMMY);
-			anchor.setAttribute('style', 'padding-right: '+endOffset+'px !important;');
-		}
-
-		var baseStyle =
-			'position: absolute !important;'
-			+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
-			+ 'opacity: ' + opacity + ' !important;'
-			+ 'color: ' + color + ' !important;';
-
-		for (var i = 0, maxi = radius; i < maxi; i++)
-		{
-			for (var j = 0, maxj = radius; j < maxj; j++)
-			{
-				var shadow = part.cloneNode(true);
-				var f = d.createDocumentFragment();
-				for (var k = 0, maxk = nodes.length; k < maxk; k++)
-				{
-					f.appendChild(nodes[k].cloneNode(true));
-				}
-				if (anchor) f.appendChild(anchor.cloneNode(true));
-				shadow.appendChild(f);
-				shadow.setAttribute('style',
-					baseStyle
-					+ 'top: ' + (i+gap) + 'px !important;'
-					+ 'bottom: ' + (-i-gap) + 'px !important;'
-					+ 'left: ' + (j+gap) + 'px !important;'
-					+ 'right: ' + (-j-gap) + 'px !important;'
-				);
-				shadows.appendChild(shadow);
-			}
-		}
-
-		innerBox.appendChild(shadows);
-	},
-	 
-	initShadowBox : function(aNode) 
-	{
-		var d = aNode.ownerDocument;
-		var w = d.defaultView;
-		var p = aNode.parentNode;
-
-		var innerBox = d.getAnonymousNodes(aNode)[0];
-		if (innerBox.hasAttribute('initialized')) return;
-
-		var originalContainer = innerBox.childNodes[0];
-		var baseContainer     = innerBox.childNodes[1];
-
-		innerBox.setAttribute('initialized', true);
-
-		originalContainer.setAttribute('style',
-			'visibility: hidden !important;'
-			+ '-moz-user-select: -moz-none !important;'
-			+ '-moz-user-focus: ignore !important;'
-		);
-		baseContainer.setAttribute('style',
-			'position: absolute !important;'
-			+ 'top: 0 !important;'
-			+ 'left: 0 !important;'
-		);
-
-		var originalAnchor    = originalContainer.lastChild;
-		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
-		var baseAnchor        = baseContainer.lastChild;
-		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
-
-		var nodes = aNode.childNodes;
-		var f = d.createDocumentFragment();
-		for (var i = 0, maxi = nodes.length; i < maxi; i++)
-		{
-			f.appendChild(nodes[i].cloneNode(true));
-		}
-		originalContainer.insertBefore(f, originalAnchor);
-
-
-		var xOffset   = 0;
-		var yOffset   = 0;
-
-		var context = w.getComputedStyle(p, null).getPropertyValue('display');
-		var originalBoxObject = d.getBoxObjectFor(context == 'inline' ? p : aNode );
-		var hasFollowingExpression = 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]';
-		var hasSiblingNodes = this.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+hasFollowingExpression, aNode).snapshotLength;
-		if (
-			context != 'none' &&
-			(context.indexOf('table-') == 0 || hasSiblingNodes)
-			)
-			context = 'inline';
-
-		var info       = this.getSizeBox(context == 'inline' ? aNode : p );
-		var parentBox  = info.sizeBox;
-		var lineHeight = this.getComputedPixels(originalContainer, 'line-height');
-		var fontSize   = this.getComputedPixels(aNode, 'font-size');
-		var width      = info.width;
-		var indent     = 0;
-
-		switch (context)
-		{
-			case 'none':
-				return;
-			case 'inline':
-				yOffset -= Math.round((lineHeight - fontSize) / 2);
-				var parentBoxObject = d.getBoxObjectFor(parentBox);
-				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
-					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
-					xOffset -= delta;
-					indent += delta;
-					width = info.boxWidth;
-				}
-				break;
-			default:
-				if (this.positionQuality < 1) break;
-
-				var dummy1 = d.createElement(this.DUMMY);
-				dummy1.appendChild(d.createTextNode('!'));
-				var dummy2 = dummy1.cloneNode(true);
-				dummy1.setAttribute('style', 'position: absolute; top: 0; left: 0;');
-
-				var f = d.createDocumentFragment();
-				f.appendChild(dummy1);
-				f.appendChild(dummy2);
-				innerBox.appendChild(f);
-				yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
-				innerBox.removeChild(dummy1);
-				innerBox.removeChild(dummy2);
-				break;
-		}
-
-		var renderingStyle = 'position: absolute !important;'
-			+ 'margin: 0 !important;'
-			+ 'padding: 0 !important;';
-
-		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
-
-		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
-		if (parentBox == p && !hasSiblingNodes) {
-			indent += info.indent;
-			xOffset -= info.indent;
-			if (align != 'left' && align != 'start' && align != 'justify' &&
-				context == 'block') {
-				xOffset -= d.getBoxObjectFor(aNode).screenX - info.boxX - info.indent;
-			}
-		}
-
-		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
-			yOffset += this.getComputedPixels(parentBox, 'margin-top');
-
-		width = Math.min(width, info.boxWidth);
-
-		var style = baseContainer.style;
-		style.cssText = renderingStyle
-			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
-			+ 'text-indent: '+indent+'px !important;'
-			+ 'z-index: 2 !important;'
-			+ 'top: ' + yOffset + 'px !important;'
-			+ 'bottom: ' + (-yOffset) + 'px !important;'
-			+ 'left: ' + xOffset + 'px !important;'
-			+ 'right: ' + (-xOffset) + 'px !important;';
-
-
-		/*
-			font-weightがboldだと、BoxObjectの幅と実際の幅が
-			一致しなくなることがある（Gecko 1.8のバグ？）。
-			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
-			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
-		*/
-		var lastLineY = originalAnchorBox.screenY;
-		var origBox   = d.getBoxObjectFor(originalContainer);
-		if (this.getComputedPixels(aNode, 'font-weight') > 400) {
-			var dy = origBox.screenY - d.getBoxObjectFor(baseContainer).screenY;
-			var c = 0;
-			while (
-				c++ < 100 &&
-				d.getBoxObjectFor(baseAnchor).screenY - lastLineY >= lineHeight &&
-				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
-				)
-			{
-				style.width = (++width)+'px !important';
-			}
-		}
-
-
-		var endOffset = 0;
-		if (
-			align != 'left' && align != 'start' && align != 'justify' &&
-			(
-				this.getNodesByXPath(hasFollowingExpression , aNode).snapshotLength ||
-				(
-					parentBox != p &&
-					this.getNodesByXPath(hasFollowingExpression , p).snapshotLength
-				)
-			)
-			) {
-			var x = originalAnchorBox.screenX;
-			endOffset = info.boxX + info.boxWidth - x;
-			baseAnchor.style.paddingRight = endOffset+'px !important';
-			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
-			{
-				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
-			}
-			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
-			{
-				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
-			}
-		}
-
-		innerBox.setAttribute('rendering-style', renderingStyle);
-		innerBox.setAttribute('x-offset',        xOffset);
-		innerBox.setAttribute('y-offset',        yOffset);
-		innerBox.setAttribute('end-offset',      endOffset);
-		innerBox.setAttribute('context',         context);
-		innerBox.setAttribute('indent',          indent);
-		innerBox.setAttribute('width',           width);
-		innerBox.setAttribute('box-width',       info.boxWidth);
-		innerBox.setAttribute('box-height',      info.boxHeight);
-	},
- 
-	getSizeBox : function(aNode) 
-	{
-		var d = aNode.ownerDocument;
-		var w = d.defaultView;
-		var box = aNode;
-		var display;
-		while (!/^table-|block|-moz-box/.test(display = w.getComputedStyle(box, null).getPropertyValue('display')) && box.parentNode)
-		{
-			box = box.parentNode;
-		}
-		if (box == d) box = d.documentElement;
-
-		var paddingTop  = this.getComputedPixels(box, 'padding-top');
-		var paddingLeft = this.getComputedPixels(box, 'padding-left');
-
-		var boxObj     = d.getBoxObjectFor(aNode);
-		var sizeBoxObj = d.getBoxObjectFor(box);
-
-		return {
-			sizeBox   : box,
-			display   : display,
-			indent    : this.getComputedPixels(box, 'text-indent'),
-			x         : boxObj.screenX,
-			y         : boxObj.screenY,
-			width     : boxObj.width,
-			height    : boxObj.height,
-			boxX      : sizeBoxObj.screenX + paddingLeft,
-			boxY      : sizeBoxObj.screenY + paddingTop,
-			boxWidth  : sizeBoxObj.width
-				- paddingLeft
-				- this.getComputedPixels(box, 'padding-right'),
-			boxHeight : sizeBoxObj.height
-				- paddingTop
-				- this.getComputedPixels(box, 'padding-bottom')
-		};
-	},
- 
-	getComputedPixels : function(aNode, aProperty) 
-	{
-		var value = aNode.ownerDocument.defaultView.getComputedStyle(aNode, null).getPropertyValue(aProperty);
-
-		// line-height
-		switch (aProperty.toLowerCase())
-		{
-			case 'line-height':
-				if (value.toLowerCase() == 'normal')
-					return this.getComputedPixels(aNode, 'font-size') * 1.2;
-				break;
-
-			case 'font-weight':
-				switch (value.toLowerCase())
-				{
-					case 'normal':  return 400;
-					case 'bold':    return 700;
-					case 'bolder':
-						return !aNode.parentNode ? 500 : Math.max(
-							900,
-							this.getComputedPixels(aNode.parentNode, 'font-weight')+100
-						);
-					case 'lighter':
-						return !aNode.parentNode ? 300 : Math.min(
-							100,
-							this.getComputedPixels(aNode.parentNode, 'font-weight')-100
-						);
-				}
-				break;
-		}
-
-		return Number(value.match(/^[-0-9\.]+/));
-	},
- 
-	convertToPixels : function(aCSSLength, aParentWidth, aSizeNode) 
-	{
-		if (!aCSSLength || typeof aCSSLength == 'number')
-			return aCSSLength;
-
-		var w = window;
-		var fontSize = this.getComputedPixels(aSizeNode, 'font-size');
-		var unit = aCSSLength.match(/em|ex|px|\%|mm|cm|in|pt|pc/i);
-		var dpi = 72; // 画面解像度は72dpiとみなす
-		if (unit) {
-			aCSSLength = Number(aCSSLength.match(/^[-0-9\.]+/));
-			switch (String(unit).toLowerCase())
-			{
-				case 'px':
-					return aCSSLength;
-
-				case '%':
-					return aCSSLength / 100 * aParentWidth;
-
-				case 'em':
-					return aCSSLength * fontSize;
-
-				case 'ex':
-					return aCSSLength * fontSize * 0.5;
-
-				case 'in':
-					return aCSSLength * dpi;
-					break;
-
-				case 'pt':
-					return aCSSLength;
-					break;
-				case 'pc':
-					return aCSSLength * 12;
-					break;
-
-				case 'mm':
-					return aCSSLength * dpi * 0.03937;
-					break;
-				case 'cm':
-					return aCSSLength * dpi * 0.3937;
-					break;
-			}
-		}
-
-		return 0;
-	},
-   
-	clearShadowBox : function(aNode) 
+  
+	removeShadow : function(aNode) 
 	{
 		var boxes = this.getNodesByXPath('descendant::*['+this.SHADOW_CONDITION+']', aNode);
 		for (var i = 0, maxi = boxes.snapshotLength; i < maxi; i++)
 		{
-			this.clearOneShadow(boxes.snapshotItem(i));
+			TextShadowBoxService.clear(boxes.snapshotItem(i));
 		}
 	},
-	 
-	clearOneShadow : function(aNode) 
-	{
-		var d = aNode.ownerDocument;
-		var nodes = aNode.childNodes;
-		var f = d.createDocumentFragment();
-		for (var i = 0, maxi = nodes.length; i < maxi; i++)
-		{
-			f.appendChild(nodes[i].cloneNode(true));
-		}
-		aNode.parentNode.insertBefore(f, aNode);
-		aNode.parentNode.removeChild(aNode);
-	},
-   
+  
 /* update shadow */ 
 	 
 	updateShadowForFrame : function(aFrame, aReason) 
@@ -1536,12 +1034,62 @@ var TextShadowService = {
 				if (!nodes.snapshotLength) return;
 				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
 				{
-					this.clearShadowBox(nodes.snapshotItem(i));
+					this.removeShadow(nodes.snapshotItem(i));
 				}
 				break;
 		}
 	},
 	 
+	startInitialize : function(aFrame, aForceUpdate) 
+	{
+		var node = aFrame.document.documentElement;
+		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
+		if (!cues || !cues.length)
+			return;
+
+		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
+		}
+		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame, aForceUpdate);
+		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
+	},
+ 
+	delayedInitialize : function(aSelf, aFrame, aForceUpdate) 
+	{
+		var node = aFrame.document.documentElement;
+		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
+
+		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
+		if (
+			!cues || !cues.length ||
+			aFrame.document.designMode == 'on'
+			) {
+			node.removeAttribute(aSelf.ATTR_INIT_CUE);
+			return;
+		}
+
+		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
+		{
+			var cue = aFrame.document.getElementById(cues.splice(0, 1));
+			if (!cue) {
+				i--;
+				continue;
+			}
+
+			if (aForceUpdate) aSelf.removeShadow(cue);
+			aSelf.setShadow(cue);
+
+			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
+				cue.removeAttribute('id');
+		}
+
+		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
+
+		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame, aForceUpdate);
+		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
+	},
+ 
 	parseTextShadowValue : function(aValue) 
 	{
 		var array = [];
@@ -1663,7 +1211,8 @@ var TextShadowService = {
 				important   : important,
 				type        : 'normal',
 				isUserStyle : false,
-				nest        : this.getNodesByXPath('ancestor::*', node).snapshotLength
+				nest        : this.getNodesByXPath('ancestor::*', node).snapshotLength,
+				id          : parseInt(Math.random() * 100000)
 			};
 
 			node.setAttribute(this.ATTR_STYLE, value.toSource());
@@ -1767,7 +1316,8 @@ var TextShadowService = {
 						specificity : specificity,
 						important   : important,
 						isUserStyle : isUserStyle,
-						nest        : this.getNodesByXPath('ancestor::*', nodes[j]).snapshotLength
+						nest        : this.getNodesByXPath('ancestor::*', nodes[j]).snapshotLength,
+						id          : parseInt(Math.random() * 100000)
 					};
 
 					nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
@@ -1803,59 +1353,9 @@ var TextShadowService = {
 			this.updateShadowForTab(tabs[i], aTabBrowser, aReason);
 		}
 	},
- 
-	startInitialize : function(aFrame, aForceUpdate) 
-	{
-		var node = aFrame.document.documentElement;
-		var cues = this.getJSValueFromAttribute(node, this.ATTR_INIT_CUE);
-		if (!cues || !cues.length)
-			return;
-
-		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
-		if (timerId) {
-			aFrame.clearTimeout(timerId);
-		}
-		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame, aForceUpdate);
-		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
-	},
- 
-	delayedInitialize : function(aSelf, aFrame, aForceUpdate) 
-	{
-		var node = aFrame.document.documentElement;
-		node.removeAttribute(aSelf.ATTR_INIT_TIMER);
-
-		var cues = aSelf.getJSValueFromAttribute(node, aSelf.ATTR_INIT_CUE);
-		if (
-			!cues || !cues.length ||
-			aFrame.document.designMode == 'on'
-			) {
-			node.removeAttribute(aSelf.ATTR_INIT_CUE);
-			return;
-		}
-
-		for (var i = 0, maxi = aSelf.renderingUnitSize; i < maxi && cues.length; i++)
-		{
-			var cue = aFrame.document.getElementById(cues.splice(0, 1));
-			if (!cue) {
-				i--;
-				continue;
-			}
-
-			if (aForceUpdate) aSelf.clearShadowBox(cue);
-			aSelf.createShadowBox(cue);
-
-			if (cue.getAttribute('id').indexOf(aSelf.ID_PREFIX) == 0)
-				cue.removeAttribute('id');
-		}
-
-		node.setAttribute(aSelf.ATTR_INIT_CUE, cues.toSource());
-
-		var timerId = aFrame.setTimeout(aSelf.delayedInitialize, 0, aSelf, aFrame, aForceUpdate);
-		node.setAttribute(aSelf.ATTR_INIT_TIMER, timerId);
-	},
   
 /* Initializing */ 
-	 
+	
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
@@ -1985,7 +1485,7 @@ var TextShadowService = {
 		if (!aDisable)
 			TSS.updateShadowForTabBrowser(TSS.browser, TSS.UPDATE_STYLE_ENABLE);
 	},
- 	 
+  
 	destroy : function() 
 	{
 		this.destroyTabBrowser(gBrowser);
@@ -1998,7 +1498,7 @@ var TextShadowService = {
 
 		this.removePrefListener(this);
 	},
-	
+	 
 	destroyTabBrowser : function(aTabBrowser) 
 	{
 /*
@@ -2199,7 +1699,7 @@ var TextShadowService = {
 		catch(e) {
 		}
 	}
-   
+  
 }; 
 
 window.addEventListener('load', TextShadowService, false);
@@ -2288,6 +1788,554 @@ TextShadowPrefListener.prototype = {
 		}
 	}
 };
+  
+	/*
+		textshadow-box methods
+		これらのメソッドは "_moz-textshadow-box" にバインディングなり何なりで
+		実装されるべき物。第一引数のaThisはthisに相当。
+	*/
+var TextShadowBoxService = { 
+	 
+	hasFollowingExpression : 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]', 
+ 
+	init : function(aThis) 
+	{
+		var d = aThis.ownerDocument;
+		var w = d.defaultView;
+		var p = aThis.parentNode;
+
+		var innerBox          = d.getAnonymousNodes(aThis)[0];
+		var originalContainer = innerBox.childNodes[0];
+		var baseContainer     = innerBox.childNodes[1];
+
+		originalContainer.setAttribute('style',
+			'visibility: hidden !important;'
+			+ '-moz-user-select: -moz-none !important;'
+			+ '-moz-user-focus: ignore !important;'
+		);
+		baseContainer.setAttribute('style',
+			'position: absolute !important;'
+			+ 'top: 0 !important;'
+			+ 'left: 0 !important;'
+		);
+
+		var originalAnchor    = originalContainer.lastChild;
+		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
+		var baseAnchor        = baseContainer.lastChild;
+		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
+
+		if (originalContainer.childNodes.length == 1) {
+			var nodes = aThis.childNodes;
+			var f = d.createDocumentFragment();
+			for (var i = 0, maxi = nodes.length; i < maxi; i++)
+			{
+				f.appendChild(nodes[i].cloneNode(true));
+			}
+			originalContainer.insertBefore(f, originalAnchor);
+			innerBox.setAttribute('initialized', true);
+		}
+
+		var xOffset   = 0;
+		var yOffset   = 0;
+
+		var context     = innerBox.getAttribute('context');
+		var originalBox = innerBox.getAttribute('original-box');
+		var fontSize    = innerBox.hasAttribute('font-size') ? Number(innerBox.getAttribute('font-size')) : 0 ;
+		var lineHeight  = innerBox.hasAttribute('line-height') ? Number(innerBox.getAttribute('line-height')) : 0 ;
+
+		var hasSiblingNodes = TextShadowService.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+this.hasFollowingExpression, aThis).snapshotLength;
+
+		if (!context) {
+			context = w.getComputedStyle(p, null).getPropertyValue('display');
+			innerBox.setAttribute('original-box', (originalBox = (context == 'inline' ? 'parent' : 'self' )));
+			if (
+				context != 'none' &&
+				(context.indexOf('table-') == 0 || hasSiblingNodes)
+				)
+				context = 'inline';
+			innerBox.setAttribute('context', context);
+			innerBox.setAttribute('font-size', (fontSize = this.getComputedPixels(aThis, 'font-size')));
+			innerBox.setAttribute('line-height', (lineHeight = this.getComputedPixels(originalContainer, 'line-height')));
+		}
+
+		var originalBoxObject = d.getBoxObjectFor(originalBox == 'parent' ? p : aThis );
+
+		var info       = this.getSizeBox(context == 'inline' ? aThis : p );
+		var parentBox  = info.sizeBox;
+		var width      = info.width;
+		var indent     = 0;
+
+		switch (context)
+		{
+			case 'none':
+				return;
+			case 'inline':
+				yOffset -= Math.round((lineHeight - fontSize) / 2);
+				var parentBoxObject = d.getBoxObjectFor(parentBox);
+				if (originalBoxObject.height > lineHeight * 1.5) { // inlineで折り返されている場合
+					var delta = originalBoxObject.screenX - parentBoxObject.screenX - this.getComputedPixels(parentBox, 'padding-left');
+					xOffset -= delta;
+					indent += delta;
+					width = info.boxWidth;
+				}
+				break;
+			default:
+				if (TextShadowService.positionQuality < 1) break;
+
+				var dummy1 = d.createElement(TextShadowService.DUMMY);
+				dummy1.appendChild(d.createTextNode('!'));
+				var dummy2 = dummy1.cloneNode(true);
+				dummy1.setAttribute('style', 'position: absolute; top: 0; left: 0;');
+
+				var f = d.createDocumentFragment();
+				f.appendChild(dummy1);
+				f.appendChild(dummy2);
+				innerBox.appendChild(f);
+				yOffset += (d.getBoxObjectFor(dummy2).height - d.getBoxObjectFor(dummy1).height) / 2;
+				innerBox.removeChild(dummy1);
+				innerBox.removeChild(dummy2);
+				break;
+		}
+
+		var renderingStyle = 'position: absolute !important;'
+			+ 'margin: 0 !important;'
+			+ 'padding: 0 !important;';
+
+		var align = w.getComputedStyle(parentBox, null).getPropertyValue('text-align');
+
+		// ブロック要素の唯一の子である場合、インデントを継承した上で全体をずらす
+		if (parentBox == p && !hasSiblingNodes) {
+			indent += info.indent;
+			xOffset -= info.indent;
+			if (align != 'left' && align != 'start' && align != 'justify' &&
+				context == 'block') {
+				xOffset -= d.getBoxObjectFor(aThis).screenX - info.boxX - info.indent;
+			}
+		}
+
+		if (w.getComputedStyle(parentBox, null).getPropertyValue('float') != 'none')
+			yOffset += this.getComputedPixels(parentBox, 'margin-top');
+
+		width = Math.min(width, info.boxWidth);
+
+		var style = baseContainer.style;
+		style.cssText = renderingStyle
+			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
+			+ 'text-indent: '+indent+'px !important;'
+			+ 'z-index: 2 !important;'
+			+ 'top: ' + yOffset + 'px !important;'
+			+ 'bottom: ' + (-yOffset) + 'px !important;'
+			+ 'left: ' + xOffset + 'px !important;'
+			+ 'right: ' + (-xOffset) + 'px !important;';
+
+
+		/*
+			font-weightがboldだと、BoxObjectの幅と実際の幅が
+			一致しなくなることがある（Gecko 1.8のバグ？）。
+			オリジナルのテキストノードと複製のテキストノードの直後に挿入した
+			ダミーノードの位置を比較して、改行がなくなるまで幅を増やす。
+		*/
+		var lastLineY = originalAnchorBox.screenY;
+		var origBox   = d.getBoxObjectFor(originalContainer);
+		if (this.getComputedPixels(aThis, 'font-weight') > 400) {
+			var dy = origBox.screenY - d.getBoxObjectFor(baseContainer).screenY;
+			var c = 0;
+			while (
+				c++ < 100 &&
+				d.getBoxObjectFor(baseAnchor).screenY - lastLineY >= lineHeight &&
+				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
+				)
+			{
+				style.width = (++width)+'px !important';
+			}
+		}
+
+
+		var endOffset = 0;
+		if (
+			align != 'left' && align != 'start' && align != 'justify' &&
+			(
+				TextShadowService.getNodesByXPath(this.hasFollowingExpression , aThis).snapshotLength ||
+				(
+					parentBox != p &&
+					TextShadowService.getNodesByXPath(this.hasFollowingExpression , p).snapshotLength
+				)
+			)
+			) {
+			var x = originalAnchorBox.screenX;
+			endOffset = info.boxX + info.boxWidth - x;
+			baseAnchor.style.paddingRight = endOffset+'px !important';
+			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
+			{
+				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+			}
+			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
+			{
+				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+			}
+		}
+
+		innerBox.setAttribute('rendering-style', renderingStyle);
+		innerBox.setAttribute('x-offset',        xOffset);
+		innerBox.setAttribute('y-offset',        yOffset);
+		innerBox.setAttribute('end-offset',      endOffset);
+		innerBox.setAttribute('indent',          indent);
+		innerBox.setAttribute('width',           width);
+		innerBox.setAttribute('box-width',       info.boxWidth);
+		innerBox.setAttribute('box-height',      info.boxHeight);
+	},
+ 	
+		draw : function(aThis) 
+		{
+			var info = TextShadowService.getJSValueFromAttribute(aThis, TextShadowService.ATTR_STYLE_FOR_EACH);
+			if (!info) return;
+
+			var innerBoxes = aThis.ownerDocument.getAnonymousNodes(aThis);
+			if (!innerBoxes[0]) return;
+
+			var innerBox = innerBoxes[0];
+			if (!innerBox.hasAttribute('initialized')) this.init(aThis);
+
+			if (info.normal) this.drawFromInfo(aThis, info.normal);
+
+			var types = ['hover', 'focus', 'active'];
+			var expressions  = [TextShadowService.DYNAMIC_HOVER_ANCESTOR, TextShadowService.DYNAMIC_FOCUS_ANCESTOR, TextShadowService.DYNAMIC_ACTIVE_ANCESTOR];
+			for (var i in types)
+			{
+				if (
+					!info[types[i]] ||
+					innerBox.hasAttribute('has-'+types[i]) ||
+					(
+						info.normal &&
+						info.normal.specificity > info[types[i]].specificity
+					)
+					)
+					continue;
+
+				new TextShadowDynamicEventListener(
+					aThis,
+					TextShadowService.getNodesByXPath(expressions[i], aThis).snapshotItem(0),
+					info[types[i]]
+				);
+			}
+		},
+	
+	drawFromInfo : function(aThis, aInfo) 
+	{
+		var shadow;
+		for (var i = 0, maxi = aInfo.shadows.length; i < maxi; i++)
+		{
+			shadow = this.drawOneShadow(
+				aThis,
+				aInfo.shadows[i].x,
+				aInfo.shadows[i].y,
+				aInfo.shadows[i].radius,
+				aInfo.shadows[i].color,
+				aInfo
+			);
+		}
+	},
+	
+	drawOneShadow : function(aThis, aX, aY, aRadius, aColor, aInfo) 
+	{
+		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
+//			this.clear(aThis);
+			return;
+		}
+
+		var d        = aThis.ownerDocument;
+		var w        = d.defaultView;
+		var innerBox = d.getAnonymousNodes(aThis)[0];
+		var shadows  = d.getAnonymousElementByAttribute(aThis, TextShadowService.ATTR_ID, aInfo.id);
+
+		var xOffset;
+		var yOffset;
+		var color;
+
+		if (shadows) {
+			xOffset = parseInt(shadows.getAttribute('x-offset'));
+			yOffset = parseInt(shadows.getAttribute('y-offset'));
+			color   = shadows.getAttribute('color');
+		}
+		else {
+			shadows = d.createElement(TextShadowService.SHADOW_CONTAINER);
+
+			var boxWidth  = parseInt(innerBox.getAttribute('box-width'));
+			var boxHeight = parseInt(innerBox.getAttribute('box-height'));
+
+			var x      = this.convertToPixels((aX || 0), boxWidth, aThis);
+			var y      = this.convertToPixels((aY || 0), boxHeight, aThis);
+			var radius = this.convertToPixels((aRadius || 0), boxWidth, aThis);
+
+			var quality = 0;
+			var gap;
+			do {
+				gap = quality;
+				quality++;
+				radius = Math.max(Math.max(radius, 1) / quality, 1);
+			}
+			while (radius != 1 && (radius * radius) > 30)
+
+			if (radius != 1) radius *= 1.2; // to show like Safari
+
+			var opacity = 1 / radius;
+
+			if (radius != 1) { // to show like Safari
+				opacity *= 0.3;
+				x *= 0.8;
+				y *= 0.8;
+			}
+
+			if (!aColor && aInfo.isUserStyle && TextShadowService.autoColorUser) {
+				w.getComputedStyle(aThis, null).getPropertyValue('color').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
+				var fgRGB = [
+						Number(RegExp.$1),
+						Number(RegExp.$2),
+						Number(RegExp.$3)
+					];
+
+				var bg = null;
+				var bgNode = aThis.parentNode;
+				while (bg == 'transparent' && bgNode.parentNode)
+				{
+					bgNode = bgNode.parentNode;
+					bg = w.getComputedStyle(bgNode, null).getPropertyValue('background-color');
+				}
+				if (!bg) bg = 'rgb(255,255,255)';
+				bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
+				var bgRGB = [
+						Number(RegExp.$1),
+						Number(RegExp.$2),
+						Number(RegExp.$3)
+					];
+
+				// グレースケールへの変換式はこちらのサイトより引用。
+				// http://www.geocities.co.jp/Milkyway/4171/graphics/002-6.html
+				// check the brightness of the color
+				var fgBright = Math.floor(((299*fgRGB[0])+(582*fgRGB[1])+(114*fgRGB[2]))/1000);
+				var bgBright = Math.floor(((299*bgRGB[0])+(582*bgRGB[1])+(114*bgRGB[2]))/1000);
+
+				aColor = (fgBright < 85) ? (
+							(bgBright < 85) ? 'white' :
+							(bgBright < 170) ? 'black' :
+							'gray'
+						) :
+						(fgBright < 170) ? (
+							(bgBright < 85) ? 'white' :
+							(bgBright < 170) ? 'black' :
+							'gray'
+						) :
+						(bgBright < 85) ? 'black' :
+						(bgBright < 170) ? 'black' :
+						'gray' ;
+			}
+
+			color = (aColor || w.getComputedStyle(aThis, null).getPropertyValue('color'));
+
+			xOffset = parseInt(innerBox.getAttribute('x-offset')) + x - (radius / 2);
+			yOffset = parseInt(innerBox.getAttribute('y-offset')) + y - (radius / 2);
+
+			if (aInfo.type) {
+				shadows.setAttribute('type', aInfo.type);
+				innerBox.setAttribute('has-'+aInfo.type, true);
+			}
+
+
+			var nodes  = aThis.childNodes;
+			var part   = d.createElement(TextShadowService.SHADOW_PART);
+
+			var anchor;
+			var endOffset = innerBox.getAttribute('end-offset');
+			if (endOffset != '0') {
+				anchor = d.createElement(TextShadowService.DUMMY);
+				anchor.setAttribute('style', 'padding-right: '+endOffset+'px !important;');
+			}
+
+			var baseStyle =
+				'position: absolute !important;'
+				+ 'margin: 0 !important; padding: 0 !important; text-indent: inherit !important;'
+				+ 'opacity: ' + opacity + ' !important;'
+				+ 'color: ' + color + ' !important;';
+
+			for (var i = 0, maxi = radius; i < maxi; i++)
+			{
+				for (var j = 0, maxj = radius; j < maxj; j++)
+				{
+					var shadow = part.cloneNode(true);
+					var f = d.createDocumentFragment();
+					for (var k = 0, maxk = nodes.length; k < maxk; k++)
+					{
+						f.appendChild(nodes[k].cloneNode(true));
+					}
+					if (anchor) f.appendChild(anchor.cloneNode(true));
+					shadow.appendChild(f);
+					shadow.setAttribute('style',
+						baseStyle
+						+ 'top: ' + (i+gap) + 'px !important;'
+						+ 'bottom: ' + (-i-gap) + 'px !important;'
+						+ 'left: ' + (j+gap) + 'px !important;'
+						+ 'right: ' + (-j-gap) + 'px !important;'
+					);
+					shadows.appendChild(shadow);
+				}
+			}
+
+		}
+
+		shadows.setAttribute('style',
+			innerBox.getAttribute('rendering-style')
+			+ 'z-index: 1 !important;'
+			+ '-moz-user-select: -moz-none !important;'
+			+ '-moz-user-focus: ignore !important;'
+			+ 'text-decoration: none !important;'
+			+ 'text-indent: '+innerBox.getAttribute('indent')+'px !important;'
+			+ 'width: '+innerBox.getAttribute('width')+'px !important;'
+			+ 'top: ' + yOffset + 'px !important;'
+			+ 'bottom: ' + (-yOffset) + 'px !important;'
+			+ 'left: ' + xOffset + 'px !important;'
+			+ 'right: ' + (-xOffset) + 'px !important;'
+			+ 'color: ' + color + ' !important;'
+		);
+
+		if (!shadows.hasAttribute(TextShadowService.ATTR_ID)) {
+			shadows.setAttribute(TextShadowService.ATTR_ID, aInfo.id);
+			innerBox.appendChild(shadows);
+		}
+	},
+	 
+	getSizeBox : function(aThis) 
+	{
+		var d = aThis.ownerDocument;
+		var w = d.defaultView;
+		var box = aThis;
+		var display;
+		while (!/^table-|block|-moz-box/.test(display = w.getComputedStyle(box, null).getPropertyValue('display')) && box.parentNode)
+		{
+			box = box.parentNode;
+		}
+		if (box == d) box = d.documentElement;
+
+		var paddingTop  = this.getComputedPixels(box, 'padding-top');
+		var paddingLeft = this.getComputedPixels(box, 'padding-left');
+
+		var boxObj     = d.getBoxObjectFor(aThis);
+		var sizeBoxObj = d.getBoxObjectFor(box);
+
+		return {
+			sizeBox   : box,
+			display   : display,
+			indent    : this.getComputedPixels(box, 'text-indent'),
+			x         : boxObj.screenX,
+			y         : boxObj.screenY,
+			width     : boxObj.width,
+			height    : boxObj.height,
+			boxX      : sizeBoxObj.screenX + paddingLeft,
+			boxY      : sizeBoxObj.screenY + paddingTop,
+			boxWidth  : sizeBoxObj.width
+				- paddingLeft
+				- this.getComputedPixels(box, 'padding-right'),
+			boxHeight : sizeBoxObj.height
+				- paddingTop
+				- this.getComputedPixels(box, 'padding-bottom')
+		};
+	},
+ 
+	getComputedPixels : function(aThis, aProperty) 
+	{
+		var value = aThis.ownerDocument.defaultView.getComputedStyle(aThis, null).getPropertyValue(aProperty);
+
+		// line-height
+		switch (aProperty.toLowerCase())
+		{
+			case 'line-height':
+				if (value.toLowerCase() == 'normal')
+					return this.getComputedPixels(aThis, 'font-size') * 1.2;
+				break;
+
+			case 'font-weight':
+				switch (value.toLowerCase())
+				{
+					case 'normal':  return 400;
+					case 'bold':    return 700;
+					case 'bolder':
+						return !aThis.parentNode ? 500 : Math.max(
+							900,
+							this.getComputedPixels(aThis.parentNode, 'font-weight')+100
+						);
+					case 'lighter':
+						return !aThis.parentNode ? 300 : Math.min(
+							100,
+							this.getComputedPixels(aThis.parentNode, 'font-weight')-100
+						);
+				}
+				break;
+		}
+
+		return Number(value.match(/^[-0-9\.]+/));
+	},
+ 
+	convertToPixels : function(aCSSLength, aParentWidth, aSizeNode) 
+	{
+		if (!aCSSLength || typeof aCSSLength == 'number')
+			return aCSSLength;
+
+		var w = window;
+		var fontSize = this.getComputedPixels(aSizeNode, 'font-size');
+		var unit = aCSSLength.match(/em|ex|px|\%|mm|cm|in|pt|pc/i);
+		var dpi = 72; // 画面解像度は72dpiとみなす
+		if (unit) {
+			aCSSLength = Number(aCSSLength.match(/^[-0-9\.]+/));
+			switch (String(unit).toLowerCase())
+			{
+				case 'px':
+					return aCSSLength;
+
+				case '%':
+					return aCSSLength / 100 * aParentWidth;
+
+				case 'em':
+					return aCSSLength * fontSize;
+
+				case 'ex':
+					return aCSSLength * fontSize * 0.5;
+
+				case 'in':
+					return aCSSLength * dpi;
+					break;
+
+				case 'pt':
+					return aCSSLength;
+					break;
+				case 'pc':
+					return aCSSLength * 12;
+					break;
+
+				case 'mm':
+					return aCSSLength * dpi * 0.03937;
+					break;
+				case 'cm':
+					return aCSSLength * dpi * 0.3937;
+					break;
+			}
+		}
+
+		return 0;
+	},
+    
+	clear : function(aThis) 
+	{
+		var d = aThis.ownerDocument;
+		var nodes = aThis.childNodes;
+		var f = d.createDocumentFragment();
+		for (var i = 0, maxi = nodes.length; i < maxi; i++)
+		{
+			f.appendChild(nodes[i].cloneNode(true));
+		}
+		aThis.parentNode.insertBefore(f, aThis);
+		aThis.parentNode.removeChild(aThis);
+	}
+ 
+}; 
  
 function TextShadowDynamicEventListener(aShadowBox, aTarget, aInfo) 
 {
@@ -2330,7 +2378,7 @@ TextShadowDynamicEventListener.prototype = {
 				break;
 		}
 		if (aEvent.type != 'unload') {
-			TextShadowService.drawShadows(this.shadow, this.info);
+			TextShadowBoxService.drawFromInfo(this.shadow, this.info);
 		}
 		delete this.info;
 		delete this.shadow;
@@ -2338,4 +2386,4 @@ TextShadowDynamicEventListener.prototype = {
 	}
 };
 
- 
+  

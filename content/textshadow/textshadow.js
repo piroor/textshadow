@@ -19,7 +19,7 @@ var TextShadowService = {
 	UPDATE_STYLE_DISABLE  : 4,
 	 
 /* coustructions */ 
-	 
+	
 	ID_PREFIX             : '_moz-textshadow-temp-', 
  
 	SHADOW                : 'span', 
@@ -65,7 +65,7 @@ var TextShadowService = {
 	ATTR_ID               : '_moz-textshadow-id',
   
 /* Utilities */ 
-	
+	 
 	get browser() 
 	{
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
@@ -95,20 +95,32 @@ var TextShadowService = {
 		return null;
 	},
  
-	getNodesByXPath : function(aExpression, aContext, aLive) 
+	getNodesByXPath : function(aExpression, aContext, aNSResolver, aLive) 
 	{
 		var d = aContext.ownerDocument || aContext;
 		var type = aLive ? XPathResult.ORDERED_NODE_ITERATOR_TYPE : XPathResult.ORDERED_NODE_SNAPSHOT_TYPE ;
 		var nodes;
 		try {
-			nodes = d.evaluate(aExpression, aContext, null, type, null);
+			nodes = d.evaluate(aExpression, aContext, (aNSResolver || null), type, null);
 		}
 		catch(e) {
-			nodes = document.evaluate(aExpression, aContext, null, type, null);
+			try {
+				nodes = document.evaluate(aExpression, aContext, (aNSResolver || null), type, null);
+			}
+			catch(e) {
+				nodes = {
+					snapshotLength : 0,
+					snapshotItem : function()
+					{
+						return null;
+					}
+				};
+				dump(e+'\n'+aExpression+'\n'+aNSResolver+'\n');
+			}
 		}
 		return nodes;
 	},
- 
+ 	
 	getJSValueFromAttribute : function(aNode, aAttribute) 
 	{
 		var value;
@@ -165,21 +177,21 @@ var TextShadowService = {
 	},
   
 /* CSS3 selector support */ 
-	
-	getElementsBySelector : function(aTargetDocument, aSelector, aSpecificity) 
+	 
+	getElementsBySelector : function(aTargetDocument, aSelector, aNSResolver, aSpecificity) 
 	{
 		var nodes = [];
 		var count = 0;
 
 		if (!aSelector) return nodes;
 
-		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument, aSpecificity);
+		var expression = this.convertSelectorToXPath(aSelector, aTargetDocument, aNSResolver, aSpecificity);
 		if (!expression.length) return nodes;
 
 		if (aSpecificity) {
 			for (var i = 0, maxi = expression.length; i < maxi; i++)
 			{
-				var result = this.getNodesByXPath(expression[i], aTargetDocument);
+				var result = this.getNodesByXPath(expression[i], aTargetDocument, aNSResolver);
 				aSpecificity.specificities[i].targets = [];
 				var targetCount = 0;
 				for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
@@ -189,7 +201,7 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var result = this.getNodesByXPath(expression, aTargetDocument);
+			var result = this.getNodesByXPath(expression, aTargetDocument, aNSResolver);
 			for (var i = 0, maxi = result.length; i < maxi; i++)
 			{
 				nodes[count++] = result.snapshotItem(i);
@@ -198,7 +210,7 @@ var TextShadowService = {
 		return nodes;
 	},
  
-	convertSelectorToXPath : function(aSelector, aTargetDocument, aSpecificity, aInNotPseudClass) 
+	convertSelectorToXPath : function(aSelector, aTargetDocument, aNSResolver, aSpecificity, aInNotPseudClass) 
 	{
 		var makeOneExpression = false;
 		if (!aSpecificity) {
@@ -253,14 +265,14 @@ var TextShadowService = {
 		aSpecificity.specificities = [];
 		var specificityCount       = 0;
 
-		function evaluate(aExpression, aTargetElements)
+		function evaluate(aExpression, aTargetElements, aNSResolver)
 		{
 			if (!aExpression) return aTargetElements;
 			var found = [];
 			var foundCount = 0;
 			for (var i = 0, maxi = aTargetElements.length; i < maxi; i++)
 			{
-				var nodes = self.getNodesByXPath(aExpression, aTargetElements[i]);
+				var nodes = self.getNodesByXPath(aExpression, aTargetElements[i], aNSResolver);
 				for (var j = 0, maxj = nodes.snapshotLength; j < maxj; j++)
 				{
 					found[foundCount++] = nodes.snapshotItem(j);
@@ -299,12 +311,12 @@ var TextShadowService = {
 			first.setAttribute('class', self.FIRSTLETTER_CLASS);
 			for (var i = 0, len = targetElements.length; i < len; i++)
 			{
-				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLETTER_CONDITION+']', targetElements[i]);
+				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLETTER_CONDITION+']', targetElements[i], aNSResolver);
 				if (firsts.snapshotLength) {
 					elements[count++] = firsts.snapshotItem(0);
 				}
 				else {
-					var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+					var text = self.getNodesByXPath('descendant::text()', targetElements[i], aNSResolver);
 					var node = text.snapshotItem(0);
 					node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
 					var newFirst = first.cloneNode(true)
@@ -330,12 +342,12 @@ var TextShadowService = {
 			var range = d.createRange();
 			for (var i = 0, len = targetElements.length; i < len; i++)
 			{
-				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLINE_CONDITION+']', targetElements[i]);
+				var firsts = self.getNodesByXPath('descendant::*['+self.FIRSTLINE_CONDITION+']', targetElements[i], aNSResolver);
 				if (firsts.snapshotLength) {
 					elements[count++] = firsts.snapshotItem(0);
 				}
 				else {
-					var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+					var text = self.getNodesByXPath('descendant::text()', targetElements[i], aNSResolver);
 					var lineEnd = false;
 					for (var j = 0, maxj = text.snapshotLength; j < maxj; j++)
 					{
@@ -385,23 +397,29 @@ var TextShadowService = {
 		function search(aEndOfPath)
 		{
 			if (!buf.isEmpty()) {
-				var step =
-					buf.combinators == '>' ? '*' :
-					buf.combinators == '+' ? 'following-sibling::*[1]' :
-					buf.combinators == '~' ? 'following-sibling::*' :
-					'descendant::*';
-
 				aSpecificity.element++;
 
 				var con       = [];
 				var conCount  = 0;
 
-				var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
-				var nameCondition = '';
-				if (tagName != '*') {
-					nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
-					con[conCount++] = nameCondition;
+				var stepNamePart = '';
+				var tagName      = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
+				var ns           = (buf.element || '').match(/^(\w+|\*)\|/) ? RegExp.$1 : '' ;
+				if (ns && ns != '*') {
+					stepNamePart = ns+':'+tagName;
 				}
+				else if (tagName != '*') {
+					stepNamePart = '*[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
+				}
+				else {
+					stepNamePart = '*';
+				}
+
+				var step =
+					buf.combinators == '>' ? stepNamePart :
+					buf.combinators == '+' ? 'following-sibling::'+stepNamePart+'[1]' :
+					buf.combinators == '~' ? 'following-sibling::'+stepNamePart :
+					'descendant::'+stepNamePart ;
 
 				if (buf.id.length) {
 					con[conCount++] = '@id = "'+buf.id+'"';
@@ -455,15 +473,15 @@ var TextShadowService = {
 							con[conCount++] = 'not(following-sibling::*)';
 							break;
 						case 'first-of-type':
-							con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
+							con[conCount++] = 'not(preceding-sibling::'+stepNamePart+')';
 						case 'last-of-type':
-							con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
+							con[conCount++] = 'not(following-sibling::'+stepNamePart+')';
 							break;
 						case 'only-child':
 							con[conCount++] = 'count(parent::*/child::*) = 1';
 							break;
 						case 'only-of-type':
-							con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
+							con[conCount++] = 'count(parent::*/child::'+stepNamePart+') = 1';	
 							break;
 						case 'empty':
 							con[conCount++] = 'not(node())';
@@ -489,11 +507,11 @@ var TextShadowService = {
 							break;
 						default:
 							var axis = /^nth-last-/.test(pseud) ? 'following-sibling' : 'preceding-sibling' ;
-							var condition = /^nth-(last-)?of-type/.test(pseud) ? nameCondition : '' ;
+							var condition = /^nth-(last-)?of-type/.test(pseud) ? stepNamePart : '*' ;
 
 							if (/not\(\s*(.+)\s*\)$/.test(pseud)) {
 								var spec = {};
-								con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, spec, true)+')';
+								con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aTargetDocument, aNSResolver, spec, true)+')';
 								aSpecificity.id        += spec.id;
 								aSpecificity.element   += spec.element;
 								aSpecificity.condition += spec.condition;
@@ -501,13 +519,13 @@ var TextShadowService = {
 							}
 
 							else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(pseud)) {
-								con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
+								con[conCount++] = 'count('+axis+'::'+condition+') = '+(parseInt(RegExp.$3)-1);
 							}
 							else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(pseud)) {
-								con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
+								con[conCount++] = '(count('+axis+'::'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
 							}
 							else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(pseud)) {
-								con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
+								con[conCount++] = 'count('+axis+'::'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
 							}
 
 							else if (/contains\(\s*["'](.+)["']\s*\)/.test(pseud)) {
@@ -1171,7 +1189,7 @@ var TextShadowService = {
 		// user stylesheet
 		if (this.checkUserStyleSheet) {
 			try {
-				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules, true));
+				foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, this.userStyleSheet.cssRules, null, true));
 			}
 			catch(e) {
 				dump(e+'\n');
@@ -1230,9 +1248,22 @@ var TextShadowService = {
 		return foundNodes;
 	},
 	 
-	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aIsUserStyle) 
+	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aNSResolver, aIsUserStyle) 
 	{
 		var foundNodes = [];
+		if (!aNSResolver)
+			aNSResolver = {
+				lookupNamespaceURI : function(aPrefix)
+				{
+					if (aPrefix in this.namespaces)
+						return this.namespaces[aPrefix];
+					if (!aPrefix)
+						return this.defaultNamespace;
+					return null;
+				},
+				defaultNamespace : null,
+				namespaces       : {}
+			};
 		var rules = aCSSRules;
 		var acceptMediaRegExp = /(^\s*$|all|screen|projection)/i;
 		var uri = aFrame.location.href;
@@ -1243,46 +1274,65 @@ var TextShadowService = {
 				case rules[i].IMPORT_RULE:
 					if (acceptMediaRegExp.test(rules[i].media.mediaText) &&
 						acceptMediaRegExp.test(rules[i].styleSheet.media.mediaText))
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].styleSheet.cssRules, aIsUserStyle));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].styleSheet.cssRules, aNSResolver, aIsUserStyle));
 					break;
 				case rules[i].MEDIA_RULE:
 					if (acceptMediaRegExp.test(rules[i].media.mediaText))
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aIsUserStyle));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aNSResolver, aIsUserStyle));
 					break;
 				case rules[i].STYLE_RULE:
 					if (rules[i].style.textShadow)
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i], i, aIsUserStyle));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i], aNSResolver, i, aIsUserStyle));
 					break;
 				default:
-					if (rules[i] != '[object CSSMozDocumentRule]') continue;
-
-					rules[i].cssText.replace(/[\n\r]/g, '').match(/@-moz-document\s+([^\{]+)/i);
-					var list = RegExp.$1.split(/\s*,\s*/);
-					var match = false;
-					var regexp = new RegExp();
-					for (var j in list)
+					switch (String(rules[i]))
 					{
-						if (regexp.compile(
-							list[j].replace(/['"]\s*\)\s*$/, '')
-								.replace(/\./g, '\\.')
-								.replace(/url-prefix\(\s*['"]/i, '^')
-								.replace(/url\(\s*['"](.+)$/i, '^$1$')
-								.replace(/domain\(\s*['"]/i, '^\\w+\:\/\/')
-							).test(uri)) {
-							match = true;
-							break;
-						}
-					}
-					if (!match) continue;
+						default:
+							continue;
 
-					foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aIsUserStyle));
+						case '[object CSSNameSpaceRule]':
+							rules[i].cssText.match(/@namespace\s+([^\s]+)\s+(url\([^\)]+\)|url\('[^']+'\)|url\("[^"]+"\)|'[^']+'|"[^"]+")/);
+							var ns  = RegExp.$1;
+							var url = RegExp.$2
+										.replace(/url\(([^\)]+)\)/, '$1')
+										.replace(/url\('([^']+)'\)/, '$1')
+										.replace(/url\("([^"]+)"\)/, '$1')
+										.replace(/'([^']+)'/, '$1')
+										.replace(/"([^"]+)"/, '$1');
+							if (ns)
+								aNSResolver.namespaces[ns] = url;
+							else
+								aNSResolver.defaultNamespace = url;
+							continue;
+
+						case '[object CSSMozDocumentRule]':
+							rules[i].cssText.replace(/[\n\r]/g, '').match(/@-moz-document\s+([^\{]+)/i);
+							var list = RegExp.$1.split(/\s*,\s*/);
+							var match = false;
+							var regexp = new RegExp();
+							for (var j in list)
+							{
+								if (regexp.compile(
+									list[j].replace(/['"]\s*\)\s*$/, '')
+										.replace(/\./g, '\\.')
+										.replace(/url-prefix\(\s*['"]/i, '^')
+										.replace(/url\(\s*['"](.+)$/i, '^$1$')
+										.replace(/domain\(\s*['"]/i, '^\\w+\:\/\/')
+									).test(uri)) {
+									match = true;
+									break;
+								}
+							}
+							if (!match) continue;
+							foundNodes = foundNodes.concat(this.collectTargetsFromCSSRules(aFrame, rules[i].cssRules, aNSResolver, aIsUserStyle));
+					}
 					break;
 			}
 		}
 		return foundNodes;
 	},
  
-	collectTargetsFromCSSRule : function(aFrame, aCSSRule, aIndex, aIsUserStyle) 
+	collectTargetsFromCSSRule : function(aFrame, aCSSRule, aNSResolver, aIndex, aIsUserStyle) 
 	{
 		var foundNodes = [];
 		var foundCount = 0;
@@ -1295,7 +1345,7 @@ var TextShadowService = {
 		var spec = {};
 		var selector = aCSSRule.selectorText.replace(/^\s+|\s+$/g, '');
 		if (
-			this.getElementsBySelector(aFrame.document, selector, spec).length &&
+			this.getElementsBySelector(aFrame.document, selector, aNSResolver, spec).length &&
 			spec.specificities &&
 			spec.specificities.length
 			) {
@@ -1347,7 +1397,7 @@ var TextShadowService = {
 
 		return foundNodes;
 	},
- 	  
+   
 	updateShadowForTab : function(aTab, aTabBrowser, aReason) 
 	{
 		if (

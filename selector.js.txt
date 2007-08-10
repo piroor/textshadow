@@ -97,15 +97,25 @@ USAGE:
 		nodes[i].style.border = 'red solid 1px';
 
 	// simple case 2
-	var nodes = document.getElementsBySelector('p:nth-child(even), li:nth-child(2n+1)');
+	var resolver = {
+			lookupNamespaceURI : function(aPrefix) {
+				switch (aPrefix)
+				{
+					case 'html':
+						return 'http://www.w3.org/1999/xhtml';
+				}
+				return null;
+			}
+		};
+	var nodes = document.getElementsBySelector('html|p:nth-child(even), html|li:nth-child(2n+1)', resolver);
 	for (var i in nodes)
 		nodes[i].style.background = 'blue';
 
 
 	// with specificity of each selector
-	var report = '';
-	var spec   = {};
-	document.getElementsBySelector('p > li, #foobar ul li', spec);
+	var report   = '';
+	var spec     = {};
+	document.getElementsBySelector('p > li, #foobar ul li', null, spec);
 	for (var i in spec.specificity)
 	{
 		report += 'selector: '+spec.specificity[i].selector+'\n'+
@@ -133,19 +143,19 @@ USAGE:
 
 */
 
-document.getElementsBySelector = function(aSelector, aSpecificity) {
+document.getElementsBySelector = function(aSelector, aNSResolver, aSpecificity) {
 	var nodes = [];
 	var count = 0;
 
 	if (!aSelector) return nodes;
 
-	var expression = this.convertSelectorToXPath(aSelector, aSpecificity);
+	var expression = this.convertSelectorToXPath(aSelector, aNSResolver, aSpecificity);
 	if (!expression.length) return nodes;
 
 	if (aSpecificity) {
 		for (var i = 0, maxi = expression.length; i < maxi; i++)
 		{
-			var result = this.getNodesByXPath(expression[i]);
+			var result = this.getNodesByXPath(expression[i], aNSResolver);
 			aSpecificity.specificities[i].targets = [];
 			var targetCount = 0;
 			for (var j = 0, maxj = result.snapshotLength; j < maxj; j++)
@@ -155,8 +165,8 @@ document.getElementsBySelector = function(aSelector, aSpecificity) {
 		}
 	}
 	else {
-		var result = this.getNodesByXPath(expression);
-		for (var i = 0, maxi = result.length; i < maxi; i++)
+		var result = this.getNodesByXPath(expression, aNSResolver);
+		for (var i = 0, maxi = result.snapshotLength; i < maxi; i++)
 		{
 			nodes[count++] = result.snapshotItem(i);
 		}
@@ -164,7 +174,7 @@ document.getElementsBySelector = function(aSelector, aSpecificity) {
 	return nodes;
 };
 
-document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudClass) {
+document.convertSelectorToXPath = function(aSelector, aNSResolver, aSpecificity, aInNotPseudClass) {
 
 	// 元のドキュメントをいじりたくない場合は、falseにすること。
 	// If you don't want to modify original document, set this to false.
@@ -225,14 +235,14 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 	aSpecificity.specificities = [];
 	var specificityCount       = 0;
 
-	function evaluate(aExpression, aTargetElements)
+	function evaluate(aExpression, aTargetElements, aNSResolver)
 	{
 		if (!aExpression) return aTargetElements;
 		var found = [];
 		var foundCount = 0;
 		for (var i = 0, maxi = aTargetElements.length; i < maxi; i++)
 		{
-			var nodes = self.getNodesByXPath(aExpression, aTargetElements[i]);
+			var nodes = self.getNodesByXPath(aExpression, aTargetElements[i], aNSResolver);
 			for (var j = 0, maxj = nodes.snapshotLength; j < maxj; j++)
 			{
 				found[foundCount++] = nodes.snapshotItem(j);
@@ -268,15 +278,15 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 		var elements = [];
 		var count = 0;
 		var first = self.createElement('span');
-		first.setAttribute('class', 'pseud-first-letter');
+		first.setAttribute('class', '_moz-first-letter-pseud');
 		for (var i = 0, len = targetElements.length; i < len; i++)
 		{
-			var firsts = self.getNodesByXPath('descendant::*[@class = "pseud-first-letter"]', targetElements[i]);
+			var firsts = self.getNodesByXPath('descendant::*[@class = "_moz-first-letter-pseud"]', targetElements[i], aNSResolver);
 			if (firsts.snapshotLength) {
 				elements[count++] = firsts.snapshotItem(0);
 			}
 			else {
-				var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+				var text = self.getNodesByXPath('descendant::text()', targetElements[i], aNSResolver);
 				var node = text.snapshotItem(0);
 				node.nodeValue = node.nodeValue.replace(/^(\s*[\"\'\`\<\>\{\}\[\]\(\)\u300c\u300d\uff62\uff63\u300e\u300f\u3010\u3011\u2018\u2019\u201c\u201d\uff3b\uff3d\uff5b\uff5d\u3008\u3009\u300a\u300b\uff08\uff09\u3014\u3015]*.)/, '');
 				var newFirst = first.cloneNode(true)
@@ -294,20 +304,20 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 		var count = 0;
 		var d = self;
 		var first = d.createElement('span');
-		first.setAttribute('class', 'pseud-first-line');
+		first.setAttribute('class', '_moz-first-line-pseud');
 		var dummy = d.createElement('span');
-		dummy.setAttribute('class', 'pseud-dummy-box');
+		dummy.setAttribute('class', '_moz-pseud-dummy-box');
 		var dummy1 = dummy.cloneNode(true);
 		var dummy2 = dummy.cloneNode(true);
 		var range = d.createRange();
 		for (var i = 0, len = targetElements.length; i < len; i++)
 		{
-			var firsts = self.getNodesByXPath('descendant::*[@class = "pseud-first-line"]', targetElements[i]);
+			var firsts = self.getNodesByXPath('descendant::*[@class = "_moz-first-line-pseud"]', targetElements[i], aNSResolver);
 			if (firsts.snapshotLength) {
 				elements[count++] = firsts.snapshotItem(0);
 			}
 			else {
-				var text = self.getNodesByXPath('descendant::text()', targetElements[i]);
+				var text = self.getNodesByXPath('descendant::text()', targetElements[i], aNSResolver);
 				var lineEnd = false;
 				for (var j = 0, maxj = text.snapshotLength; j < maxj; j++)
 				{
@@ -357,23 +367,29 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 	function search(aEndOfPath)
 	{
 		if (!buf.isEmpty()) {
-			var step =
-				buf.combinators == '>' ? '*' :
-				buf.combinators == '+' ? 'following-sibling::*[1]' :
-				buf.combinators == '~' ? 'following-sibling::*' :
-				'descendant::*';
-
 			aSpecificity.element++;
 
 			var con       = [];
 			var conCount  = 0;
 
-			var tagName = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
-			var nameCondition = '';
-			if (tagName != '*') {
-				nameCondition = 'local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"';
-				con[conCount++] = nameCondition;
+			var stepNamePart = '';
+			var tagName      = ((buf.element || '').replace(/^(\w+|\*)\|/, '') || '*');
+			var ns           = (buf.element || '').match(/^(\w+|\*)\|/) ? RegExp.$1 : '' ;
+			if (ns && ns != '*') {
+				stepNamePart = ns+':'+tagName;
 			}
+			else if (tagName != '*') {
+				stepNamePart = '*[local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]';
+			}
+			else {
+				stepNamePart = '*';
+			}
+
+			var step =
+				buf.combinators == '>' ? stepNamePart :
+				buf.combinators == '+' ? 'following-sibling::'+stepNamePart+'[1]' :
+				buf.combinators == '~' ? 'following-sibling::'+stepNamePart :
+				'descendant::'+stepNamePart ;
 
 			if (buf.id.length) {
 				con[conCount++] = '@id = "'+buf.id+'"';
@@ -427,15 +443,15 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 						con[conCount++] = 'not(following-sibling::*)';
 						break;
 					case 'first-of-type':
-						con[conCount++] = 'not(preceding-sibling::*'+nameCondition+')';
+						con[conCount++] = 'not(preceding-sibling::'+stepNamePart+')';
 					case 'last-of-type':
-						con[conCount++] = 'not(following-sibling::*'+nameCondition+')';
+						con[conCount++] = 'not(following-sibling::'+stepNamePart+')';
 						break;
 					case 'only-child':
 						con[conCount++] = 'count(parent::*/child::*) = 1';
 						break;
 					case 'only-of-type':
-						con[conCount++] = 'count(parent::*/child::*'+nameCondition+') = 1';
+						con[conCount++] = 'count(parent::*/child::'+stepNamePart+') = 1';	
 						break;
 					case 'empty':
 						con[conCount++] = 'not(node())';
@@ -461,11 +477,11 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 						break;
 					default:
 						var axis = /^nth-last-/.test(pseud) ? 'following-sibling' : 'preceding-sibling' ;
-						var condition = /^nth-(last-)?of-type/.test(pseud) ? nameCondition : '' ;
+						var condition = /^nth-(last-)?of-type/.test(pseud) ? stepNamePart : '*' ;
 
 						if (/not\(\s*(.+)\s*\)$/.test(pseud)) {
 							var spec = {};
-							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, spec, true)+')';
+							con[conCount++] = 'not('+self.convertSelectorToXPath(RegExp.$1, aNSResolver, spec, true)+')';
 							aSpecificity.id        += spec.id;
 							aSpecificity.element   += spec.element;
 							aSpecificity.condition += spec.condition;
@@ -473,13 +489,13 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 						}
 
 						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)\s*\)/.test(pseud)) {
-							con[conCount++] = 'count('+axis+'::*'+condition+') = '+(parseInt(RegExp.$3)-1);
+							con[conCount++] = 'count('+axis+'::'+condition+') = '+(parseInt(RegExp.$3)-1);
 						}
 						else if (/nth-(last-)?(child|of-type)\(\s*([0-9]+)n\s*(([\+\-])\s*([0-9]+)\s*)?\)/.test(pseud)) {
-							con[conCount++] = '(count('+axis+'::*'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
+							con[conCount++] = '(count('+axis+'::'+condition+')'+(RegExp.$6 ? ' '+RegExp.$5+' '+RegExp.$6 : '' )+') mod '+RegExp.$3+' = 1';
 						}
 						else if (/nth-(last-)?(child|of-type)\(\s*(odd|even)\s*\)/.test(pseud)) {
-							con[conCount++] = 'count('+axis+'::*'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
+							con[conCount++] = 'count('+axis+'::'+condition+') mod 2 = '+(RegExp.$3 == 'even' ? '1' : '0' );
 						}
 
 						else if (/contains\(\s*["'](.+)["']\s*\)/.test(pseud)) {
@@ -500,9 +516,9 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 						case 'visited':
 							if (silhouettePseudElementsAndClasses) {
 								var history = Components.classes['@mozilla.org/browser/global-history;2'].getService(Components.interfaces.nsIGlobalHistory2);
-								foundElements = getElementsByCondition(function(aElement) {
-									var uri = aElement.href || aElement.getAttribute('href');
-									var isLink = /^(link|a|area)$/i.test(aElement.localName) && uri;
+								foundElements = getElementsByCondition(function(aNode) {
+									var uri = aNode.href || aNode.getAttribute('href');
+									var isLink = /^(link|a|area)$/i.test(aNode.localName) && uri;
 									var isVisited = false;
 									if (isLink) {
 										try {
@@ -512,7 +528,7 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 											dump(uri+' / '+self.makeURIFromSpec(uri));
 											dump(e+'\n');
 										}
-										if (isVisited) aElement.setAttribute('_moz-pseud-class-visited', true);
+										if (isVisited) aNode.setAttribute('_moz-pseud-class-visited', true);
 									}
 									return isLink && isVisited ? 1 : -1 ;
 								}, foundElements);
@@ -524,10 +540,10 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 
 						case 'target':
 							if (silhouettePseudElementsAndClasses) {
-								foundElements = getElementsByCondition(function(aElement) {
+								foundElements = getElementsByCondition(function(aNode) {
 									(/#(.+)$/).test(aTargetDocument.defaultView.location.href);
-									var isTarget = RegExp.$1 && aElement.getAttribute('id') == decodeURIComponent(RegExp.$1);
-									if (isTarget) aElement.setAttribute('_moz-pseud-class-target', true);
+									var isTarget = RegExp.$1 && aNode.getAttribute('id') == decodeURIComponent(RegExp.$1);
+									if (isTarget) aNode.setAttribute('_moz-pseud-class-target', true);
 									return isTarget ? 1 : -1 ;
 								}, foundElements);
 								con[conCount++] = '@_moz-pseud-class-target = "true"';
@@ -535,11 +551,25 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 								break;
 							}
 
+/*
+						case 'hover':
+						case 'focus':
+						case 'active':
+							if (silhouettePseudElementsAndClasses) {
+								foundElements = getElementsByCondition(function(aNode) {
+									aNode.setAttribute(''+pseud, true);
+									return 1;
+								}, foundElements);
+								aSpecificity.condition++;
+								break;
+							}
+*/
+
 						case 'first-letter':
 							if (silhouettePseudElementsAndClasses) {
 								steps[stepsCount++] = makeLocationStep(step, con);
 								foundElements = getFirstLetters(foundElements);
-								steps[stepsCount++] = 'descendant::*['+self.FIRSTLETTER_CONDITION+']';
+								steps[stepsCount++] = 'descendant::*[@class = "_moz-first-letter-pseud"]';
 								step = null;
 								break;
 							}
@@ -548,7 +578,7 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 							if (silhouettePseudElementsAndClasses) {
 								steps[stepsCount++] = makeLocationStep(step, con);
 								foundElements = getFirstLines(foundElements);
-								steps[stepsCount++] = 'descendant::*['+self.FIRSTLINE_CONDITION+']';
+								steps[stepsCount++] = 'descendant::*[@class = "_moz-first-line-pseud"]';
 								step = null;
 								break;
 							}
@@ -562,7 +592,7 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 							conCount   = 0;
 							steps      = [];
 							stepsCount = 0;
-							foundElements = [self];
+							foundElements = [aTargetDocument];
 							break pseudRoop;
 					}
 				}
@@ -751,13 +781,13 @@ document.convertSelectorToXPath = function(aSelector, aSpecificity, aInNotPseudC
 	return makeOneExpression ? expressions.join(' | ') : expressions ;
 };
 
-document.getNodesByXPath = function(aExpression, aContext, aLive) 
+document.getNodesByXPath = function(aExpression, aContext, aNSResolver, aLive) 
 {
 	var aContext = aContext || this;
 	var type = aLive ? XPathResult.ORDERED_NODE_ITERATOR_TYPE : XPathResult.ORDERED_NODE_SNAPSHOT_TYPE ;
 	var nodes;
 	try {
-		nodes = this.evaluate(aExpression, aContext, null, type, null);
+		nodes = this.evaluate(aExpression, aContext, (aNSResolver || null), type, null);
 	}
 	catch(e) {
 	}

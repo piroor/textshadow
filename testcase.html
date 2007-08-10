@@ -1,4 +1,11 @@
+<?xml version="1.0" encoding="Shift_JIS"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:test="http://piro.sakura.ne.jp/test">
+<head>
+<title>testcases</title>
 <style type="text/css">
+@namespace url("http://www.w3.org/1999/xhtml");
+@namespace test url("http://piro.sakura.ne.jp/test");
+
 p > em {
 	text-shadow: 2px 2px 2mm orange;
 }
@@ -7,7 +14,8 @@ li[testAttr="hoge"],
 li[testAttr~="bar"],
 li[lang|="en"],
 li:first-child > :link,
-p.only-child {
+p.only-child,
+.container > test|p {
 	text-shadow: 2px 2px 3pt red !important;
 	color: red;
 }
@@ -21,7 +29,8 @@ p.test2:first-letter {
 p:last-child,
 :target,
 :checked,
-ul.test li+li {
+ul.test li+li,
+.container > p {
 	text-shadow: 2px 2px 2px blue;
 }
 
@@ -50,6 +59,9 @@ p:hover {
 
 
 </style>
+</head>
+
+<body>
 
 <div>
 
@@ -60,7 +72,11 @@ p:hover {
 <script type="text/javascript"><!--
 
 document.getElementById('test-button').addEventListener('click', function() {
-	var nodes = document.getElementsBySelector(prompt('input CSS selector'));
+	var selector = prompt('input CSS selector');
+//	var path = document.convertSelectorToXPath(selector);
+//	alert(path);
+//	alert(document.getNodesByXPath(path).snapshotLength);
+	var nodes = document.getElementsBySelector(selector);
 	for (var i in nodes)
 		nodes[i].setAttribute('style', 'border: 1px solid red;');
 }, false);
@@ -102,9 +118,9 @@ document.getElementById('test-button').addEventListener('click', function() {
 
 
 
-<p class="test1" style="max-width: 45em;">:first-line疑似要素のテスト。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。一行目だけが赤くなります。</p>
+<p class="test1" style="max-width: 45em;">:first-line疑似要素のテスト。一行目だけが赤くなります。しかしながら、再描画時の実装を省略しているため、ウィンドウ幅が変化するなどして「1行目」の範囲が変化した際に、スタイル指定が正しく反映されなくなります。</p>
 
-<p class="test2" style="max-width: 45em;">「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。「先頭の一文字」だけが赤くなります。</p>
+<p class="test2" style="max-width: 45em;">「先頭の一文字」だけが赤くなります。正確には、括弧を含む2文字分のスタイルが変化します。また、float:leftが指定されているため、“「先”の部分だけがフロートになり、残りの部分は右によけられます。しかしながら、現在の実装ではフロートに後続するノードの外観についての対策を怠っているため、後続するテキストがフロートになった:first-letterの箇所に重なってしまいます。</p>
 
 <p class="only-child"><em style="font-weight: bold;">強調強調強調強調強調強調</em></p>
 
@@ -117,11 +133,9 @@ document.getElementById('test-button').addEventListener('click', function() {
 
 <ul class="test">
 	<li><input type="checkbox" checked="true" />checked</li>
-	<li><input type="checkbox" checked>checked</li>
-	<li><input type="checkbox">not checked</li>
+	<li><input type="checkbox" />not checked</li>
 	<li><input type="radio" checked="true" />checked</li>
-	<li><input type="radio" checked>checked</li>
-	<li><input type="radio">not checked</li>
+	<li><input type="radio" />not checked</li>
 	<li><input type="text" size="10" value="hogehogehoge" /></li>
 </ul>
 
@@ -134,7 +148,15 @@ document.getElementById('test-button').addEventListener('click', function() {
 	<li>項目：青</li>
 </ul>
 
+<div class="container">
+	<p>HTMLの名前空間のp要素。青い影が付きます。</p>
+	<test:p>別の名前空間のp要素。赤い影が付きます。</test:p>
+</div>
+
 
 <p class="test3">最後のp要素。:last-child疑似クラスにより、青い影が付きます。</p>
 
 </div>
+</body>
+
+</html>

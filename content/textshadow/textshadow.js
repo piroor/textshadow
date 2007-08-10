@@ -2031,11 +2031,13 @@ var TextShadowBoxService = {
 			baseAnchor.style.paddingRight = endOffset+'px !important';
 			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
 			{
-				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+//				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+				baseAnchor.setAttribute('style', 'padding-right: '+(++endOffset)+'px !important'); // Firefox 3ではこう書かないと反映されない……？
 			}
 			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
 			{
-				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+//				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+				baseAnchor.setAttribute('style', 'padding-right: '+(++endOffset)+'px !important'); // Firefox 3ではこう書かないと反映されない……？
 			}
 		}
 

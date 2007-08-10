@@ -15,9 +15,8 @@ var TextShadowService = {
 	UPDATE_INIT           : 0,
 	UPDATE_PAGELOAD       : 1,
 	UPDATE_RESIZE         : 2,
-	UPDATE_REBUILD        : 3,
-	UPDATE_STYLE_ENABLE   : 4,
-	UPDATE_STYLE_DISABLE  : 5,
+	UPDATE_STYLE_ENABLE   : 3,
+	UPDATE_STYLE_DISABLE  : 4,
 	 
 /* coustructions */ 
 	
@@ -791,7 +790,7 @@ var TextShadowService = {
 	},
   
 /* draw shadow */ 
-	
+	 
 	setShadow : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
@@ -900,6 +899,17 @@ var TextShadowService = {
 		node.setAttribute(this.ATTR_DRAW_TIMER, timerId);
 	},
  
+	stopAllDraw : function(aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		var timerId = node.getAttribute(this.ATTR_DRAW_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
+		}
+		node.removeAttribute(this.ATTR_DRAW_TIMER);
+		node.removeAttribute(this.ATTR_DRAW_CUE);
+	},
+ 
 	delayedDraw : function(aSelf, aFrame) 
 	{
 		var node = aFrame.document.documentElement;
@@ -965,14 +975,45 @@ var TextShadowService = {
 		if (!cues) cues = [];
 		switch (aReason)
 		{
+			case this.UPDATE_STYLE_DISABLE:
+				this.stopInitialize(aFrame);
+				this.stopAllDraw(aFrame);
+				var newEvent = d.createEvent('Events');
+				newEvent.initEvent('TextShadowClearRequest', false, true);
+				d.documentElement.dispatchEvent(newEvent);
+				break;
+
+			case this.UPDATE_RESIZE:
+				if (rootNode.getAttribute(this.ATTR_LAST_WIDTH) == d.getBoxObjectFor(rootNode).width) return;
+				this.stopInitialize(aFrame);
+				this.stopAllDraw(aFrame);
+				var newEvent = d.createEvent('Events');
+				newEvent.initEvent('TextShadowRebuildRequest', false, true);
+				d.documentElement.dispatchEvent(newEvent);
+
 			case this.UPDATE_PAGELOAD:
-				if (rootNode.hasAttribute(this.ATTR_DONE)) return;
-				rootNode.setAttribute(this.ATTR_DONE, true);
+			case this.UPDATE_STYLE_ENABLE:
+				var nodes;
+				if (aReason == this.UPDATE_PAGELOAD) {
+					if (rootNode.hasAttribute(this.ATTR_DONE)) return;
+					rootNode.setAttribute(this.ATTR_DONE, true);
 
-				var nodes = this.collectTargets(aFrame);
-				if (!nodes) return;
+					nodes = this.collectTargets(aFrame);
+					if (!nodes) return;
 
-				this.addStyleSheet(d, 'chrome://textshadow/content/textshadow.css');
+					this.addStyleSheet(d, 'chrome://textshadow/content/textshadow.css');
+				}
+				else {
+					nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
+					if (!nodes.snapshotLength) return;
+					var nodesArray = [];
+					for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
+					{
+						nodesArray.push(nodes.snapshotItem(i));
+					}
+					nodes = nodesArray;
+				}
+
 				nodes.sort(function(aA, aB) {
 					if (!aA || !aB) return 0;
 					if (typeof aA == 'string') aA = d.getElementById(aA);
@@ -994,49 +1035,6 @@ var TextShadowService = {
 				rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
 				this.startInitialize(aFrame);
 				break;
-
-			case this.UPDATE_RESIZE:
-				if (rootNode.getAttribute(this.ATTR_LAST_WIDTH) == d.getBoxObjectFor(rootNode).width) return;
-
-			case this.UPDATE_STYLE_ENABLE:
-			case this.UPDATE_REBUILD:
-				var nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
-				if (!nodes.snapshotLength) return;
-				var nodesArray = [];
-				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
-				{
-					nodesArray.push(nodes.snapshotItem(i));
-				}
-				cues.sort(function(aA, aB) {
-					if (!aA || !aB) return 0;
-					if (typeof aA == 'string') aA = d.getElementById(aA);
-					if (typeof aB == 'string') aB = d.getElementById(aB);
-					if (!aA.boxObject) aA.boxObject = d.getBoxObjectFor(aA);
-					if (!aB.boxObject) aB.boxObject = d.getBoxObjectFor(aB);
-					return aA.boxObject.screenY - aB.boxObject.screenY;
-				});
-				var self = this;
-				cues = cues.concat(nodesArray.map(function(aItem) {
-						var id = aItem.getAttribute('id');
-						if (!id) {
-							id = self.ID_PREFIX+parseInt(Math.random() * 1000000);
-							aItem.setAttribute('id', id);
-						}
-						return id;
-					}));
-				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
-				rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
-				this.startInitialize(aFrame, true);
-				break;
-
-			case this.UPDATE_STYLE_DISABLE:
-				var nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
-				if (!nodes.snapshotLength) return;
-				for (var i = 0, maxi = nodes.snapshotLength; i < maxi; i++)
-				{
-					this.removeShadow(nodes.snapshotItem(i));
-				}
-				break;
 		}
 	},
 	 
@@ -1053,6 +1051,17 @@ var TextShadowService = {
 		}
 		timerId = aFrame.setTimeout(this.delayedInitialize, 0, this, aFrame, aForceUpdate);
 		node.setAttribute(this.ATTR_INIT_TIMER, timerId);
+	},
+ 
+	stopInitialize : function(aFrame) 
+	{
+		var node = aFrame.document.documentElement;
+		var timerId = node.getAttribute(this.ATTR_INIT_TIMER);
+		if (timerId) {
+			aFrame.clearTimeout(timerId);
+		}
+		node.removeAttribute(this.ATTR_INIT_TIMER);
+		node.removeAttribute(this.ATTR_INIT_CUE);
 	},
  
 	delayedInitialize : function(aSelf, aFrame, aForceUpdate) 
@@ -1220,7 +1229,7 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-	 
+	
 	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aIsUserStyle) 
 	{
 		var foundNodes = [];
@@ -1823,6 +1832,14 @@ var TextShadowBoxService = {
 		var originalAnchorBox = d.getBoxObjectFor(originalAnchor);
 		var baseAnchor        = baseContainer.lastChild;
 		var baseAnchorBox     = d.getBoxObjectFor(baseAnchor);
+		var hasSiblingNodes   = TextShadowService.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+this.hasFollowingExpression, aThis).snapshotLength;
+
+		var xOffset     = 0;
+		var yOffset     = 0;
+		var context     = innerBox.getAttribute('context');
+		var originalBox = innerBox.getAttribute('original-box');
+		var fontSize    = innerBox.hasAttribute('font-size') ? Number(innerBox.getAttribute('font-size')) : 0 ;
+		var lineHeight  = innerBox.hasAttribute('line-height') ? Number(innerBox.getAttribute('line-height')) : 0 ;
 
 		if (originalContainer.childNodes.length == 1) {
 			var nodes = aThis.childNodes;
@@ -1832,20 +1849,7 @@ var TextShadowBoxService = {
 				f.appendChild(nodes[i].cloneNode(true));
 			}
 			originalContainer.insertBefore(f, originalAnchor);
-			innerBox.setAttribute('initialized', true);
-		}
 
-		var xOffset   = 0;
-		var yOffset   = 0;
-
-		var context     = innerBox.getAttribute('context');
-		var originalBox = innerBox.getAttribute('original-box');
-		var fontSize    = innerBox.hasAttribute('font-size') ? Number(innerBox.getAttribute('font-size')) : 0 ;
-		var lineHeight  = innerBox.hasAttribute('line-height') ? Number(innerBox.getAttribute('line-height')) : 0 ;
-
-		var hasSiblingNodes = TextShadowService.getNodesByXPath('preceding-sibling::* | preceding-sibling::text()[translate(text(), " \u3000\t\n\r", "")] | '+this.hasFollowingExpression, aThis).snapshotLength;
-
-		if (!context) {
 			context = w.getComputedStyle(p, null).getPropertyValue('display');
 			innerBox.setAttribute('original-box', (originalBox = (context == 'inline' ? 'parent' : 'self' )));
 			if (
@@ -1856,6 +1860,10 @@ var TextShadowBoxService = {
 			innerBox.setAttribute('context', context);
 			innerBox.setAttribute('font-size', (fontSize = this.getComputedPixels(aThis, 'font-size')));
 			innerBox.setAttribute('line-height', (lineHeight = this.getComputedPixels(originalContainer, 'line-height')));
+
+			new TextShadowUpdateEventListener(aThis);
+
+			innerBox.setAttribute('initialized', true);
 		}
 
 		var originalBoxObject = d.getBoxObjectFor(originalBox == 'parent' ? p : aThis );
@@ -1984,48 +1992,47 @@ var TextShadowBoxService = {
 		innerBox.setAttribute('box-width',       info.boxWidth);
 		innerBox.setAttribute('box-height',      info.boxHeight);
 	},
- 	
-		draw : function(aThis) 
+ 
+	draw : function(aThis) 
+	{
+		var info = TextShadowService.getJSValueFromAttribute(aThis, TextShadowService.ATTR_STYLE_FOR_EACH);
+		if (!info) return;
+
+		var innerBoxes = aThis.ownerDocument.getAnonymousNodes(aThis);
+		if (!innerBoxes || !innerBoxes[0]) return;
+
+		var innerBox = innerBoxes[0];
+		if (!innerBox.hasAttribute('initialized')) this.init(aThis);
+
+		if (info.normal) this.drawFromInfo(aThis, info.normal);
+
+		var types = ['hover', 'focus', 'active'];
+		var expressions  = [TextShadowService.DYNAMIC_HOVER_ANCESTOR, TextShadowService.DYNAMIC_FOCUS_ANCESTOR, TextShadowService.DYNAMIC_ACTIVE_ANCESTOR];
+		for (var i in types)
 		{
-			var info = TextShadowService.getJSValueFromAttribute(aThis, TextShadowService.ATTR_STYLE_FOR_EACH);
-			if (!info) return;
+			if (
+				!info[types[i]] ||
+				innerBox.hasAttribute('has-'+types[i]) ||
+				(
+					info.normal &&
+					info.normal.specificity > info[types[i]].specificity
+				)
+				)
+				continue;
 
-			var innerBoxes = aThis.ownerDocument.getAnonymousNodes(aThis);
-			if (!innerBoxes[0]) return;
-
-			var innerBox = innerBoxes[0];
-			if (!innerBox.hasAttribute('initialized')) this.init(aThis);
-
-			if (info.normal) this.drawFromInfo(aThis, info.normal);
-
-			var types = ['hover', 'focus', 'active'];
-			var expressions  = [TextShadowService.DYNAMIC_HOVER_ANCESTOR, TextShadowService.DYNAMIC_FOCUS_ANCESTOR, TextShadowService.DYNAMIC_ACTIVE_ANCESTOR];
-			for (var i in types)
-			{
-				if (
-					!info[types[i]] ||
-					innerBox.hasAttribute('has-'+types[i]) ||
-					(
-						info.normal &&
-						info.normal.specificity > info[types[i]].specificity
-					)
-					)
-					continue;
-
-				new TextShadowDynamicEventListener(
-					aThis,
-					TextShadowService.getNodesByXPath(expressions[i], aThis).snapshotItem(0),
-					info[types[i]]
-				);
-			}
-		},
-	
+			new TextShadowDynamicEventListener(
+				aThis,
+				TextShadowService.getNodesByXPath(expressions[i], aThis).snapshotItem(0),
+				info[types[i]]
+			);
+		}
+	},
+	 
 	drawFromInfo : function(aThis, aInfo) 
 	{
-		var shadow;
 		for (var i = 0, maxi = aInfo.shadows.length; i < maxi; i++)
 		{
-			shadow = this.drawOneShadow(
+			this.drawOneShadow(
 				aThis,
 				aInfo.shadows[i].x,
 				aInfo.shadows[i].y,
@@ -2035,23 +2042,27 @@ var TextShadowBoxService = {
 			);
 		}
 	},
-	
+	 
 	drawOneShadow : function(aThis, aX, aY, aRadius, aColor, aInfo) 
 	{
 		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
-//			this.clear(aThis);
 			return;
 		}
 
-		var d        = aThis.ownerDocument;
-		var w        = d.defaultView;
-		var innerBox = d.getAnonymousNodes(aThis)[0];
-		var shadows  = d.getAnonymousElementByAttribute(aThis, TextShadowService.ATTR_ID, aInfo.id);
+		var d          = aThis.ownerDocument;
+		var w          = d.defaultView;
+		var innerBoxes = d.getAnonymousNodes(aThis);
+		if (!innerBoxes) return;
+
+		var innerBox = innerBoxes[0];
+		if (!innerBox) return;
 
 		var xOffset;
 		var yOffset;
 		var color;
 
+		var index = innerBox.getAttribute('has-'+aInfo.type);
+		var shadows  = index ? innerBox.childNodes[index] : null ;
 		if (shadows) {
 			xOffset = parseInt(shadows.getAttribute('x-offset'));
 			yOffset = parseInt(shadows.getAttribute('y-offset'));
@@ -2130,16 +2141,13 @@ var TextShadowBoxService = {
 						'gray' ;
 			}
 
-			color = (aColor || w.getComputedStyle(aThis, null).getPropertyValue('color'));
+			shadows.setAttribute('color', (color = (aColor || w.getComputedStyle(aThis, null).getPropertyValue('color'))));
 
-			xOffset = parseInt(innerBox.getAttribute('x-offset')) + x - (radius / 2);
-			yOffset = parseInt(innerBox.getAttribute('y-offset')) + y - (radius / 2);
+			shadows.setAttribute('x-offset', (xOffset = parseInt(innerBox.getAttribute('x-offset')) + x - (radius / 2)));
+			shadows.setAttribute('y-offset', (yOffset = parseInt(innerBox.getAttribute('y-offset')) + y - (radius / 2)));
 
-			if (aInfo.type) {
-				shadows.setAttribute('type', aInfo.type);
-				innerBox.setAttribute('has-'+aInfo.type, true);
-			}
-
+			shadows.setAttribute('type', aInfo.type);
+			innerBox.setAttribute('has-'+aInfo.type, innerBox.childNodes.length);
 
 			var nodes  = aThis.childNodes;
 			var part   = d.createElement(TextShadowService.SHADOW_PART);
@@ -2321,7 +2329,7 @@ var TextShadowBoxService = {
 
 		return 0;
 	},
-    
+  	  
 	clear : function(aThis) 
 	{
 		var d = aThis.ownerDocument;
@@ -2336,6 +2344,36 @@ var TextShadowBoxService = {
 	}
  
 }; 
+ 
+function TextShadowUpdateEventListener(aShadowBox) 
+{
+	this.shadow = aShadowBox;
+	var d = this.shadow.ownerDocument;
+	d.defaultView.addEventListener('unload', this, false);
+	d.documentElement.addEventListener('TextShadowClearRequest', this, false);
+	d.documentElement.addEventListener('TextShadowRebuildRequest', this, false);
+}
+TextShadowUpdateEventListener.prototype = {
+	shadow      : null,
+	type        : null,
+	handleEvent : function(aEvent)
+	{
+		switch (aEvent.type)
+		{
+			case 'TextShadowClearRequest':
+			case 'TextShadowRebuildRequest':
+				TextShadowBoxService.clear(this.shadow);
+			case 'unload':
+				var d = this.shadow.ownerDocument;
+				d.defaultView.removeEventListener('unload', this, false);
+				d.documentElement.removeEventListener('TextShadowClearRequest', this, false);
+				d.documentElement.removeEventListener('TextShadowRebuildRequest', this, false);
+				delete this.type;
+				delete this.shadow;
+				return;
+		}
+	}
+};
  
 function TextShadowDynamicEventListener(aShadowBox, aTarget, aInfo) 
 {
@@ -2355,7 +2393,10 @@ function TextShadowDynamicEventListener(aShadowBox, aTarget, aInfo)
 			this.target.addEventListener('keydown', this, false);
 			break;
 	}
-	this.target.ownerDocument.defaultView.addEventListener('unload', this, false);
+	var d = this.target.ownerDocument;
+	d.defaultView.addEventListener('unload', this, false);
+	d.documentElement.addEventListener('TextShadowClearRequest', this, false);
+	d.documentElement.addEventListener('TextShadowRebuildRequest', this, false);
 }
 TextShadowDynamicEventListener.prototype = {
 	shadow      : null,
@@ -2363,23 +2404,28 @@ TextShadowDynamicEventListener.prototype = {
 	info        : null,
 	handleEvent : function(aEvent)
 	{
-		this.target.ownerDocument.defaultView.removeEventListener('unload', this, false);
 		switch (this.info.type)
 		{
 			case 'hover':
 				this.target.removeEventListener('mouseover', this, false);
+				TextShadowBoxService.drawFromInfo(this.shadow, this.info);
 				break;
 			case 'focus':
 				this.target.removeEventListener('focus', this, false);
+				TextShadowBoxService.drawFromInfo(this.shadow, this.info);
 				break;
 			case 'active':
 				this.target.removeEventListener('mousedown', this, false);
 				this.target.removeEventListener('keydown', this, false);
+				TextShadowBoxService.drawFromInfo(this.shadow, this.info);
+				break;
+			default:
 				break;
 		}
-		if (aEvent.type != 'unload') {
-			TextShadowBoxService.drawFromInfo(this.shadow, this.info);
-		}
+		var d = this.target.ownerDocument;
+		d.defaultView.removeEventListener('unload', this, false);
+		d.documentElement.removeEventListener('TextShadowClearRequest', this, false);
+		d.documentElement.removeEventListener('TextShadowRebuildRequest', this, false);
 		delete this.info;
 		delete this.shadow;
 		delete this.target;

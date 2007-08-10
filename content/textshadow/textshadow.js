@@ -19,7 +19,7 @@ var TextShadowService = {
 	UPDATE_STYLE_DISABLE  : 4,
 	 
 /* coustructions */ 
-	
+	 
 	ID_PREFIX             : '_moz-textshadow-temp-', 
  
 	SHADOW                : 'span', 
@@ -1229,7 +1229,7 @@ var TextShadowService = {
 		}
 		return foundNodes;
 	},
-	
+	 
 	collectTargetsFromCSSRules : function(aFrame, aCSSRules, aIsUserStyle) 
 	{
 		var foundNodes = [];
@@ -1251,7 +1251,7 @@ var TextShadowService = {
 					break;
 				case rules[i].STYLE_RULE:
 					if (rules[i].style.textShadow)
-						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i], aIsUserStyle));
+						foundNodes = foundNodes.concat(this.collectTargetsFromCSSRule(aFrame, rules[i], i, aIsUserStyle));
 					break;
 				default:
 					if (rules[i] != '[object CSSMozDocumentRule]') continue;
@@ -1282,7 +1282,7 @@ var TextShadowService = {
 		return foundNodes;
 	},
  
-	collectTargetsFromCSSRule : function(aFrame, aCSSRule, aIsUserStyle) 
+	collectTargetsFromCSSRule : function(aFrame, aCSSRule, aIndex, aIsUserStyle) 
 	{
 		var foundNodes = [];
 		var foundCount = 0;
@@ -1293,8 +1293,9 @@ var TextShadowService = {
 		var isUserStyle = aIsUserStyle || false;
 
 		var spec = {};
+		var selector = aCSSRule.selectorText.replace(/^\s+|\s+$/g, '');
 		if (
-			this.getElementsBySelector(aFrame.document, aCSSRule.selectorText.replace(/^\s+|\s+$/g, ''), spec).length &&
+			this.getElementsBySelector(aFrame.document, selector, spec).length &&
 			spec.specificities &&
 			spec.specificities.length
 			) {
@@ -1331,17 +1332,22 @@ var TextShadowService = {
 
 					nodes[j].setAttribute(this.ATTR_STYLE, value.toSource());
 
-					if (spec.specificities[i].selector.indexOf(':first-letter') > -1) {
-					}
-
 					foundNodes[foundCount++] = nodes[j];
 				}
+			}
+
+			// Gecko desn't support setting value to "selectorText"...
+			if (selector.indexOf(':first-letter') > -1) {
+				var rule  = aCSSRule.cssText;
+				var sheet = aCSSRule.parentStyleSheet;
+				sheet.deleteRule(aIndex);
+				sheet.insertRule(rule.replace(/::?first-letter/, ' > *|*.'+this.FIRSTLETTER_CLASS), aIndex);
 			}
 		}
 
 		return foundNodes;
 	},
-   
+ 	  
 	updateShadowForTab : function(aTab, aTabBrowser, aReason) 
 	{
 		if (
@@ -2329,7 +2335,7 @@ var TextShadowBoxService = {
 
 		return 0;
 	},
-  	  
+    
 	clear : function(aThis) 
 	{
 		var d = aThis.ownerDocument;

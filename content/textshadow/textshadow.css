@@ -5,9 +5,7 @@
 	-moz-binding: url(chrome://textshadow/content/textshadow.xml#textshadow-box) !important;
 }
 
-*|*._moz-textshadow-box,
-*|*._moz-first-line-pseud,
-*|*._moz-first-letter-pseud {
+*|*._moz-textshadow-box {
 	background: transparent !important;
 	border: none !important;
 	bottom: auto !important;
@@ -60,6 +58,62 @@
 	width: auto !important;
 	word-spacing: inherit !important;
 	z-index: auto !important;
+}
+
+*|*._moz-first-line-pseud,
+*|*._moz-first-letter-pseud {
+	background: transparent;
+	border: none;
+	bottom: auto;
+	clear: none;
+	clip: auto;
+	color: inherit;
+	counter-increment: none;
+	counter-reset: none;
+	cursor: inherit;
+	direction: inherit;
+	display: inline;
+	float: none;
+	font-family: inherit;
+	font-style: inherit;
+	font-size: 100%;
+	font-size-adjust: inherit;
+	font-stretch: inherit;
+	font-variant: inherit;
+	font-weight: inherit;
+	height: auto;
+	left: auto;
+	letter-spacing: inherit;
+	line-height: inherit;
+	list-style: inherit;
+	margin: 0;
+	max-height: none;
+	max-width: none;
+	min-height: 0;
+	min-width: 0;
+	orphans: inherit;
+	outline: none;
+	padding: 0;
+	page: auto;
+	page-break-after: auto;
+	page-break-before: auto;
+	page-break-inside: auto;
+	position: static;
+	quotes: inherit;
+	right: auto;
+	text-align: inherit;
+	text-decoration: inherit;
+	text-indent: 0;
+	text-transform: inherit;
+	top: auto;
+	unicode-bidi: inherit;
+	vertical-align: baseline;
+	visibility: visible;
+	white-space: inherit;
+	widows: inherit;
+	width: auto;
+	word-spacing: inherit;
+	z-index: auto;
 }
 
 *|_moz-textshadow-dummy-box,

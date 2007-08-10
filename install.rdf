@@ -5,7 +5,7 @@
   <RDF:Description RDF:about="urn:mozilla:install-manifest"
                    em:id="textshadow@piro.sakura.ne.jp"
                    em:name="Text Shadow"
-                   em:version="0.2.2007080703"
+                   em:version="0.2.2007081001"
                    em:creator="SHIMODA Hiroshi"
                    em:description="Provides text-shadow support."
                    em:homepageURL="http://piro.sakura.ne.jp/xul/textshadow/"

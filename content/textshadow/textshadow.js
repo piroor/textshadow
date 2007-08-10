@@ -1907,7 +1907,7 @@ var TextShadowBoxService = {
 			originalContainer.insertBefore(f, originalAnchor);
 
 			context = w.getComputedStyle(p, null).getPropertyValue('display');
-			innerBox.setAttribute('original-box', (originalBox = (context == 'inline' ? 'parent' : 'self' )));
+			innerBox.setAttribute('original-box', (originalBox = (context == 'inline' && !p.localName.match(/^(applet|button|embed|iframe|img|input|object|select|option|textarea)$/i) ? 'parent' : 'self' )));
 			if (
 				context != 'none' &&
 				(context.indexOf('table-') == 0 || hasSiblingNodes)
@@ -1982,15 +1982,20 @@ var TextShadowBoxService = {
 
 		width = Math.min(width, info.boxWidth);
 
-		var style = baseContainer.style;
-		style.cssText = renderingStyle
-			+ 'width: '+width+'px;' // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
+		var tempStyle = renderingStyle
 			+ 'text-indent: '+indent+'px !important;'
 			+ 'z-index: 2 !important;'
 			+ 'top: ' + yOffset + 'px !important;'
 			+ 'bottom: ' + (-yOffset) + 'px !important;'
 			+ 'left: ' + xOffset + 'px !important;'
 			+ 'right: ' + (-xOffset) + 'px !important;';
+
+
+		var containerStyle = baseContainer.style;
+
+		containerStyle.cssText = tempStyle+'width: '+width+'px;'
+		baseContainer.setAttribute('style', tempStyle
+			+ 'width: '+width+'px;'); // !importantを付けてしまうと、後でstyleプロパティを操作しても変更が反映されなくなってしまう。なので、ここでは!importantなしの指定。
 
 
 		/*
@@ -2010,7 +2015,8 @@ var TextShadowBoxService = {
 				d.getBoxObjectFor(baseAnchor).screenY + dy - lastLineY >= lineHeight
 				)
 			{
-				style.width = (++width)+'px !important';
+				containerStyle.width = (++width)+'px !important';
+				baseContainer.setAttribute('style', tempStyle+'width:'+width+'px !important');
 			}
 		}
 
@@ -2028,15 +2034,17 @@ var TextShadowBoxService = {
 			) {
 			var x = originalAnchorBox.screenX;
 			endOffset = info.boxX + info.boxWidth - x;
-			baseAnchor.style.paddingRight = endOffset+'px !important';
+			var baseStyle = baseAnchor.style;
+			baseStyle.paddingRight = endOffset+'px !important';
+			baseAnchor.setAttribute('style', 'padding-right: '+endOffset+'px !important');
 			while (baseAnchorBox.screenX < originalAnchorBox.screenX && endOffset >= 0)
 			{
-//				baseAnchor.style.paddingRight = (endOffset -= fontSize)+'px !important';
+				baseStyle.paddingRight = (endOffset -= fontSize)+'px !important';
 				baseAnchor.setAttribute('style', 'padding-right: '+(++endOffset)+'px !important'); // Firefox 3ではこう書かないと反映されない……？
 			}
 			while (baseAnchorBox.screenX > originalAnchorBox.screenX)
 			{
-//				baseAnchor.style.paddingRight = (++endOffset)+'px !important';
+				baseStyle.paddingRight = (++endOffset)+'px !important';
 				baseAnchor.setAttribute('style', 'padding-right: '+(++endOffset)+'px !important'); // Firefox 3ではこう書かないと反映されない……？
 			}
 		}

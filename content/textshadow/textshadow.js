@@ -855,7 +855,7 @@ var TextShadowService = {
 			}
 		}
 		else {
-			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head object iframe frame frames noframes ", concat(" ",local-name()," ")) or contains(" SCRIPT NOSCRIPT STYLE HEAD OBJECT IFRAME FRAME FRAMES NOFRAMES ", concat(" ",local-name()," "))])]', aNode);
+			var textNodes = this.getNodesByXPath('descendant::text()[not(ancestor::*['+this.SHADOW_CONDITION+' or contains(" script noscript style head applet embed object iframe frame frames noframes input textarea select option param plaintext SCRIPT NOSCRIPT STYLE HEAD EMBED APPLET OBJECT IFRAME FRAME FRAMES NOFRAMES INPUT TEXTAREA SELECT OPTION PARAM PLAINTEXT ", concat(" ",local-name()," "))])]', aNode);
 			var wrapper = d.createElement(this.SHADOW);
 			wrapper.setAttribute('class', this.SHADOW_CLASS);
 			wrapper.setAttribute(this.ATTR_STYLE_FOR_EACH, aNode.getAttribute(this.ATTR_STYLE));

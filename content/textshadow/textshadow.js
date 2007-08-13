@@ -1123,8 +1123,8 @@ var TextShadowService = {
 		aValue = String(aValue)
 				.replace(/^\s+|\s+$/gi, '')
 				.replace(/\s*!\s*important/i, '')
-				.replace(/\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3/%4)')
-				.replace(/\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3)')
+				.replace(/\(\s*([^,\)]+)\s*,\s*([^,\)]+)\s*,\s*([^,\)]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3/$4)')
+				.replace(/\(\s*([^,\)]+)\s*,\s*([^,\)]+)\s*,\s*([^\)]+)\s*\)/g, '($1/$2/$3)')
 				.split(',');
 
 		for (var i = 0; i < aValue.length; i++)
@@ -1134,7 +1134,8 @@ var TextShadowService = {
 					x      : 0,
 					y      : 0,
 					radius : 0,
-					color  : null
+					color  : null,
+					index  : i
 				};
 
 			var currentColor;
@@ -2094,24 +2095,17 @@ var TextShadowBoxService = {
 		}
 	},
 	 
-	drawFromInfo : function(aThis, aInfo) 
+	drawFromInfo : function(aThis, aShadowSet) 
 	{
-		for (var i = 0, maxi = aInfo.shadows.length; i < maxi; i++)
+		for (var i = 0, maxi = aShadowSet.shadows.length; i < maxi; i++)
 		{
-			this.drawOneShadow(
-				aThis,
-				aInfo.shadows[i].x,
-				aInfo.shadows[i].y,
-				aInfo.shadows[i].radius,
-				aInfo.shadows[i].color,
-				aInfo
-			);
+			this.drawOneShadow(aThis, aShadowSet.shadows[i], aShadowSet);
 		}
 	},
 	 
-	drawOneShadow : function(aThis, aX, aY, aRadius, aColor, aInfo) 
+	drawOneShadow : function(aThis, aShadow, aShadowSet) 
 	{
-		if ((!aX && !aY && !aRadius) || (aColor || '').toLowerCase() == 'transparent') {
+		if ((!aShadow.x && !aShadow.y && !aShadow.radius) || (aShadow.color || '').toLowerCase() == 'transparent') {
 			return;
 		}
 
@@ -2125,10 +2119,10 @@ var TextShadowBoxService = {
 
 		var xOffset;
 		var yOffset;
-		var color;
+		var color = aShadow.color;
 
-		var index = innerBox.getAttribute('has-'+aInfo.type);
-		var shadows  = index ? innerBox.childNodes[index] : null ;
+		var index   = innerBox.getAttribute('has-'+aShadowSet.type+'-'+aShadow.index);
+		var shadows = index ? innerBox.childNodes[index] : null ;
 		if (shadows) {
 			xOffset = parseInt(shadows.getAttribute('x-offset'));
 			yOffset = parseInt(shadows.getAttribute('y-offset'));
@@ -2140,9 +2134,9 @@ var TextShadowBoxService = {
 			var boxWidth  = parseInt(innerBox.getAttribute('box-width'));
 			var boxHeight = parseInt(innerBox.getAttribute('box-height'));
 
-			var x      = this.convertToPixels((aX || 0), boxWidth, aThis);
-			var y      = this.convertToPixels((aY || 0), boxHeight, aThis);
-			var radius = this.convertToPixels((aRadius || 0), boxWidth, aThis);
+			var x      = this.convertToPixels((aShadow.x || 0), boxWidth, aThis);
+			var y      = this.convertToPixels((aShadow.y || 0), boxHeight, aThis);
+			var radius = this.convertToPixels((aShadow.radius || 0), boxWidth, aThis);
 
 			var quality = 0;
 			var gap;
@@ -2163,7 +2157,7 @@ var TextShadowBoxService = {
 				y *= 0.8;
 			}
 
-			if (!aColor && aInfo.isUserStyle && TextShadowService.autoColorUser) {
+			if (!color && aShadowSet.isUserStyle && TextShadowService.autoColorUser) {
 				w.getComputedStyle(aThis, null).getPropertyValue('color').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*(\d+)\s*)?\)/i);
 				var fgRGB = [
 						Number(RegExp.$1),
@@ -2192,7 +2186,7 @@ var TextShadowBoxService = {
 				var fgBright = Math.floor(((299*fgRGB[0])+(582*fgRGB[1])+(114*fgRGB[2]))/1000);
 				var bgBright = Math.floor(((299*bgRGB[0])+(582*bgRGB[1])+(114*bgRGB[2]))/1000);
 
-				aColor = (fgBright < 85) ? (
+				color = (fgBright < 85) ? (
 							(bgBright < 85) ? 'white' :
 							(bgBright < 170) ? 'black' :
 							'gray'
@@ -2207,13 +2201,13 @@ var TextShadowBoxService = {
 						'gray' ;
 			}
 
-			shadows.setAttribute('color', (color = (aColor || w.getComputedStyle(aThis, null).getPropertyValue('color'))));
+			shadows.setAttribute('color', (color = (color || w.getComputedStyle(aThis, null).getPropertyValue('color'))));
 
 			shadows.setAttribute('x-offset', (xOffset = parseInt(innerBox.getAttribute('x-offset')) + x - (radius / 2)));
 			shadows.setAttribute('y-offset', (yOffset = parseInt(innerBox.getAttribute('y-offset')) + y - (radius / 2)));
 
-			shadows.setAttribute('type', aInfo.type);
-			innerBox.setAttribute('has-'+aInfo.type, innerBox.childNodes.length);
+			shadows.setAttribute('type', aShadowSet.type);
+			innerBox.setAttribute('has-'+aShadowSet.type+'-'+aShadow.index, innerBox.childNodes.length);
 
 			var nodes  = aThis.childNodes;
 			var part   = d.createElement(TextShadowService.SHADOW_PART);
@@ -2272,7 +2266,7 @@ var TextShadowBoxService = {
 		);
 
 		if (!shadows.hasAttribute(TextShadowService.ATTR_ID)) {
-			shadows.setAttribute(TextShadowService.ATTR_ID, aInfo.id);
+			shadows.setAttribute(TextShadowService.ATTR_ID, aShadowSet.id);
 			innerBox.appendChild(shadows);
 		}
 	},

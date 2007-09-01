@@ -120,7 +120,7 @@ var TextShadowService = {
 		}
 		return nodes;
 	},
- 	
+ 
 	getJSValueFromAttribute : function(aNode, aAttribute) 
 	{
 		var value;
@@ -175,7 +175,19 @@ var TextShadowService = {
 			dump(e+'\n');
 		}
 	},
-  
+ 
+	compareNumArray : function(aA, aB) 
+	{
+		for (var i = 0, maxi = aA.length; i < maxi; i++)
+		{
+			if (aA[i] < aB[i])
+				return -1;
+			else if (aA[i] > aB[i])
+				return 1;
+		}
+		return 0;
+	},
+ 	 
 /* CSS3 selector support */ 
 	 
 	getElementsBySelector : function(aTargetDocument, aSelector, aNSResolver, aSpecificity) 
@@ -651,11 +663,11 @@ var TextShadowService = {
 					aSpecificity.specificities[specificityCount++] = {
 						selector : selector,
 						value    : [
-							'0',
-							aSpecificity.id || '0',
-							aSpecificity.condition || '0',
-							aSpecificity.element || '0'
-						].join('') || '0000'
+							0,
+							aSpecificity.id || 0,
+							aSpecificity.condition || 0,
+							aSpecificity.element || 0
+						]
 					};
 					aSpecificity.id        = 0;
 					aSpecificity.element   = 0;
@@ -1228,10 +1240,10 @@ var TextShadowService = {
 			if (!array.length) continue;
 
 			var important   = node.style.getPropertyPriority('text-shadow') == 'important';
-			var specificity = important ? 11000 : 1000 ;
+			var specificity = important ? [1,1,0,0,0] : [0,1,0,0,0] ;
 
 			var value = this.getJSValueFromAttribute(node, this.ATTR_STYLE) || {};
-			if (value && value.normal && value.normal.specificity > specificity) continue;
+			if (value && value.normal && this.compareNumArray(value.normal.specificity, specificity) > 0) continue;
 
 			value.normal = {
 				shadows     : array,
@@ -1356,7 +1368,7 @@ var TextShadowService = {
 				if (!nodes.length) continue;
 
 				var specificity = spec.specificities[i].value;
-				specificity = Number((important ? '1' : '' )+specificity);
+				specificity.unshift(important ? 1 : 0 );
 
 				var type = /:(hover|focus|active)/i.test(spec.specificities[i].selector) ? RegExp.$1.toLowerCase() : 'normal' ;
 
@@ -1369,7 +1381,7 @@ var TextShadowService = {
 						continue;
 
 					var value = this.getJSValueFromAttribute(nodes[j], this.ATTR_STYLE) || {};
-					if (value && value[type] && value[type].specificity > specificity) continue;
+					if (value && value[type] && this.compareNumArray(value[type].specificity, specificity) > 0) continue;
 
 					value[type] = {
 						type        : type,

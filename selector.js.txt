@@ -130,11 +130,11 @@ USAGE:
 	// The sample above will show a report like:
 	//
 	//	selector: p > li
-	//	specificity: 0002
+	//	specificity: [0, 0, 0, 2]
 	//	nodes: 4
 	//	----
 	//	selector: #foobar ul li
-	//	specificity: 0102
+	//	specificity: [0, 1, 0, 2]
 	//	nodes: 5
 	//	----
 	//
@@ -625,11 +625,11 @@ document.convertSelectorToXPath = function(aSelector, aNSResolver, aSpecificity,
 				aSpecificity.specificities[specificityCount++] = {
 					selector : selector,
 					value    : [
-						'0',
-						aSpecificity.id || '0',
-						aSpecificity.condition || '0',
-						aSpecificity.element || '0'
-					].join('') || '0000'
+						0,
+						aSpecificity.id || 0,
+						aSpecificity.condition || 0,
+						aSpecificity.element || 0
+					]
 				};
 				aSpecificity.id        = 0;
 				aSpecificity.element   = 0;

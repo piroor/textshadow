@@ -429,7 +429,7 @@ var TextShadowService = {
 
 				var step =
 					buf.combinators == '>' ? stepNamePart :
-					buf.combinators == '+' ? 'following-sibling::'+stepNamePart+'[1]' :
+					buf.combinators == '+' ? 'following-sibling::*[1][local-name() = "'+tagName+'" or local-name() = "'+tagName.toUpperCase()+'"]' :
 					buf.combinators == '~' ? 'following-sibling::'+stepNamePart :
 					'descendant::'+stepNamePart ;
 
@@ -458,7 +458,7 @@ var TextShadowService = {
 						attributes[i] =
 							operator == '=' ? '@'+attrName+' = "'+attrValue+'"' :
 							operator == '~=' ? 'contains(concat(" ",@'+attrName+'," "), " '+attrValue+' " )' :
-							operator == '|=' ? 'starts-with(@'+attrName+', "'+attrValue+'") or starts-with(@'+attrName+', "'+attrValue+'-")' :
+							operator == '|=' ? '@'+attrName+' = "'+attrValue+'" or starts-with(@'+attrName+', "'+attrValue+'-")' :
 							operator == '^=' ? 'starts-with(@'+attrName+', "'+attrValue+'" )' :
 							operator == '$=' ? 'substring(@'+attrName+', string-length(@'+attrName+') - string-length("'+attrValue+'") + 1) = "'+attrValue+'"' :
 							operator == '*=' ? 'contains(@'+attrName+', "'+attrValue+'" )' :
@@ -496,16 +496,16 @@ var TextShadowService = {
 							con[conCount++] = 'count(parent::*/child::'+stepNamePart+') = 1';	
 							break;
 						case 'empty':
-							con[conCount++] = 'not(node())';
+							con[conCount++] = 'not(*) and not(text())';
 							break;
 						case 'link':
 							con[conCount++] = '@href and contains(" link LINK a A area AREA ", concat(" ",local-name()," "))';
 							break;
 						case 'enabled':
-							con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled == "false" or @disabled != "disabled"))';
+							con[conCount++] = '(@enabled and (@enabled = "true" or @enabled = "enabled" or @enabled != "false")) or (@disabled and (@disabled = "false" or @disabled != "disabled"))';
 							break;
 						case 'disabled':
-							con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled == "true" or @disabled = "disabled" or @disabled != "false"))';
+							con[conCount++] = '(@enabled and (@enabled = "false" or @enabled != "enabled")) or (@disabled and (@disabled = "true" or @disabled = "disabled" or @disabled != "false"))';
 							break;
 						case 'checked':
 							con[conCount++] = '(@checked and (@checked = "true" or @checked = "checked" or @checked != "false")) or (@selected and (@selected = "true" or @selected = "selected" or @selected != "false"))';
@@ -514,8 +514,7 @@ var TextShadowService = {
 							con[conCount++] = '(@checked and (@checked = "false" or @checked != "checked")) or (@selected and (@selected = "false" or @selected != "selected"))';
 							break;
 						case 'root':
-							step = step.replace(/^descendant::/, 'descendant-or-self::');
-							con[conCount++] = 'not(ancestor::*)';
+							con[conCount++] = 'not(parent::*)';
 							break;
 						default:
 							var axis = /^nth-last-/.test(pseud) ? 'following-sibling' : 'preceding-sibling' ;

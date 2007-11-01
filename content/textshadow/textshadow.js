@@ -65,7 +65,7 @@ var TextShadowService = {
 	ATTR_ID               : '_moz-textshadow-id',
   
 /* Utilities */ 
-	 
+	
 	get browser() 
 	{
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
@@ -187,9 +187,9 @@ var TextShadowService = {
 		}
 		return 0;
 	},
- 	 
+  
 /* CSS3 selector support */ 
-	 
+	
 	getElementsBySelector : function(aTargetDocument, aSelector, aNSResolver, aSpecificity) 
 	{
 		var nodes = [];
@@ -819,7 +819,7 @@ var TextShadowService = {
 	},
   
 /* draw shadow */ 
-	 
+	
 	setShadow : function(aNode) 
 	{
 		var d = aNode.ownerDocument;
@@ -984,7 +984,7 @@ var TextShadowService = {
 	},
   
 /* update shadow */ 
-	 
+	
 	updateShadowForFrame : function(aFrame, aReason) 
 	{
 		if (!this.shadowEnabled) return;
@@ -1432,7 +1432,7 @@ var TextShadowService = {
 	},
   
 /* Initializing */ 
-	
+	 
 	init : function() 
 	{
 		if (!('gBrowser' in window)) return;
@@ -1485,36 +1485,45 @@ var TextShadowService = {
 	{
 		aTabBrowser.thumbnailUpdateCount = 0;
 
-		var addTabMethod = 'addTab';
-		var removeTabMethod = 'removeTab';
-		if (aTabBrowser.__tabextensions__addTab) {
-			addTabMethod = '__tabextensions__addTab';
-			removeTabMethod = '__tabextensions__removeTab';
+		if ('resetOwner' in aTabBrowser) { // Firefox 2
+			aTabBrowser.addEventListener('TabOpen',  this, false);
+			aTabBrowser.addEventListener('TabClose', this, false);
 		}
+		else {
+			var addTabMethod = 'addTab';
+			var removeTabMethod = 'removeTab';
+			if (aTabBrowser.__tabextensions__addTab) {
+				addTabMethod = '__tabextensions__addTab';
+				removeTabMethod = '__tabextensions__removeTab';
+			}
 
-		aTabBrowser.__textshadow__originalAddTab = aTabBrowser[addTabMethod];
-		aTabBrowser[addTabMethod] = function() {
-			var tab = this.__textshadow__originalAddTab.apply(this, arguments);
-			try {
-				TextShadowService.initTab(tab, this);
-			}
-			catch(e) {
-			}
-			return tab;
-		};
+			aTabBrowser.__textshadow__originalAddTab = aTabBrowser[addTabMethod];
+			aTabBrowser[addTabMethod] = function() {
+				var tab = this.__textshadow__originalAddTab.apply(this, arguments);
+				try {
+					TextShadowService.initTab(tab, this);
+				}
+				catch(e) {
+				}
+				return tab;
+			};
 
-		aTabBrowser.__textshadow__originalRemoveTab = aTabBrowser[removeTabMethod];
-		aTabBrowser[removeTabMethod] = function(aTab) {
-			TextShadowService.destroyTab(aTab);
-			var retVal = this.__textshadow__originalRemoveTab.apply(this, arguments);
-			try {
-				if (aTab.parentNode)
-					TextShadowService.initTab(aTab, this);
-			}
-			catch(e) {
-			}
-			return retVal;
-		};
+			aTabBrowser.__textshadow__originalRemoveTab = aTabBrowser[removeTabMethod];
+			aTabBrowser[removeTabMethod] = function(aTab) {
+				TextShadowService.destroyTab(aTab);
+				var retVal = this.__textshadow__originalRemoveTab.apply(this, arguments);
+				try {
+					if (aTab.parentNode)
+						TextShadowService.initTab(aTab, this);
+				}
+				catch(e) {
+				}
+				return retVal;
+			};
+
+			delete addTabMethod;
+			delete removeTabMethod;
+		}
 
 		var tabs = aTabBrowser.mTabContainer.childNodes;
 		for (var i = 0, maxi = tabs.length; i < maxi; i++)
@@ -1532,8 +1541,6 @@ var TextShadowService = {
 		aTabBrowser.__textshadow__eventListener = new TextShadowBrowserEventListener(aTabBrowser);
 		window.addEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 
-		delete addTabMethod;
-		delete removeTabMethod;
 		delete i;
 		delete maxi;
 		delete tabs;
@@ -1586,6 +1593,11 @@ var TextShadowService = {
 
 		window.removeEventListener('resize', aTabBrowser.__textshadow__eventListener, false);
 
+		if ('resetOwner' in aTabBrowser) { // Firefox 2
+			aTabBrowser.removeEventListener('TabOpen',  this, false);
+			aTabBrowser.removeEventListener('TabClose', this, false);
+		}
+
 		var tabs = aTabBrowser.mTabContainer.childNodes;
 		for (var i = 0, maxi = tabs.length; i < maxi; i++)
 		{
@@ -1614,13 +1626,25 @@ var TextShadowService = {
 	},
    
 /* Event Handling */ 
-	
+	 
 	handleEvent : function(aEvent) 
 	{
 		switch (aEvent.type)
 		{
 			case 'load':
 				this.init();
+				break;
+
+			case 'unload':
+				this.destroy();
+				break;
+
+			case 'TabOpen':
+				this.initTab(aEvent.originalTarget, aEvent.currentTarget);
+				break;
+
+			case 'TabClose':
+				this.destroyTab(aEvent.originalTarget);
 				break;
 
 			case 'SubBrowserAdded':
@@ -1632,7 +1656,7 @@ var TextShadowService = {
 				break;
 		}
 	},
- 
+ 	
 	observe : function(aSubject, aTopic, aData) 
 	{
 		switch (aTopic)

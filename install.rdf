@@ -20,12 +20,14 @@
     <em:localized>
       <RDF:Description em:locale="en-US"
                        em:name="Text Shadow"
-                       em:description="Provides text-shadow support, which is a part of CSS3."/>
+                       em:description="Provides text-shadow support, which is a part of CSS3."
+                       em:homepageURL="http://piro.sakura.ne.jp/xul/_textshadow.html.en"/>
     </em:localized>
     <em:localized>
       <RDF:Description em:locale="ja"
                        em:name="テキストシャドウ"
-                       em:description="CSS3のtext-shadowを表示できるようにします。"/>
+                       em:description="CSS3のtext-shadowを表示できるようにします。"
+                       em:homepageURL="http://piro.sakura.ne.jp/xul/_textshadow.html"/>
     </em:localized>
 
 

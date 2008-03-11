@@ -4,3 +4,6 @@ overlay	chrome://browser/content/browser.xul	chrome://textshadow/content/textsha
 
 locale	textshadow	en-US	jar:chrome/textshadow.jar!/locale/en-US/textshadow/
 locale	textshadow	ja	jar:chrome/textshadow.jar!/locale/ja/textshadow/
+
+skin	textshadow	classic/1.0	jar:chrome/textshadow.jar!/skin/classic/textshadow/
+

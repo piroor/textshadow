@@ -26,6 +26,9 @@
 		<preference id="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
 			name="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
 			type="bool"/>
+		<preference id="extensions.textshadow.toggleButton"
+			name="extensions.textshadow.toggleButton"
+			type="bool"/>
 	</preferences>
 
 	<checkbox id="extensions.textshadow.enabled-check"
@@ -35,6 +38,10 @@
 	<checkbox id="extensions.textshadow.autoCalculateShadowColor.userStyleSheet-check"
 		preference="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
 		label="&extensions.textshadow.autoCalculateShadowColor.userStyleSheet;"/>
+
+	<checkbox id="extensions.textshadow.toggleButton-check"
+		preference="extensions.textshadow.toggleButton"
+		label="&extensions.textshadow.toggleButton;"/>
 
 	<hbox align="center">
 		<label class="shrinked-label"

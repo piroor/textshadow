@@ -14,15 +14,10 @@ License.
 The Original Code is the Text Shadow.
 
 The Initial Developer of the Original Code is SHIMODA Hiroshi.
-Portions created by the Initial Developer are Copyright (C) 2007-2008
+Portions created by the Initial Developer are Copyright (C) 2008
 the Initial Developer. All Rights Reserved.
 
 Contributor(s): SHIMODA Hiroshi <piro@p.club.ne.jp>
-
-                "getElementsBySelector" is
-                from "selector.js - Get elements by CSS selector"
-                made by Nyarla, <thotep@nyarla.net>
-                        http://nyarla.net/blog/
 
 Alternatively, the contents of this file may be used under the terms of
 either the GNU General Public License Version 2 or later (the "GPL"), or

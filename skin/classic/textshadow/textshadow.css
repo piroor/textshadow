@@ -1,0 +1,10 @@
+#textshadow-toggle-button {
+	list-style-image: url(state.png);
+}
+#textshadow-toggle-button[state="enabled"] {
+	-moz-image-region: rect(0px, 16px, 16px, 0px);
+}
+#textshadow-toggle-button[state="disabled"] {
+	-moz-image-region: rect(16px, 16px, 32px, 0px);
+}
+

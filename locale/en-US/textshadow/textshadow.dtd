@@ -1,8 +1,12 @@
 <!ENTITY config.title    "Text Shadow Configuration">
 <!ENTITY config.style    "max-width: 40em;">
 
+<!ENTITY toggle.button.enabled  "Toogle Text Shadow: Hide shadows">
+<!ENTITY toggle.button.disabled "Toggle Text Shadow: Show shadows">
+
 <!ENTITY extensions.textshadow.enabled  "Show text with drop-shadow">
 <!ENTITY extensions.textshadow.autoCalculateShadowColor.userStyleSheet  "Calculate the color of shadows automatically, when they are declared in the user stylesheet without their color">
+<!ENTITY extensions.textshadow.toggleButton  "Add button toggling text shadow to the status bar">
 
 <!ENTITY extensions.textshadow.renderingUnitSize.before "Draw">
 <!ENTITY extensions.textshadow.renderingUnitSize.after  "shadows per frames">

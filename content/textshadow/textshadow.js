@@ -71,6 +71,11 @@ var TextShadowService = {
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
 	},
  
+	get statusbarPanel()
+	{
+		return document.getElementById('textshadow-toggle-button');
+	},
+ 
 	IOService : Components.classes['@mozilla.org/network/io-service;1'].getService(Components.interfaces.nsIIOService), 
  
 	ObserverService : Components.classes['@mozilla.org/observer-service;1'].getService(Components.interfaces.nsIObserverService), 
@@ -1682,6 +1687,11 @@ var TextShadowService = {
 		{
 			case 'extensions.textshadow.enabled':
 				this.shadowEnabled = value;
+				var state = value ? 'enabled' : 'disabled' ;
+				var panel = this.statusbarPanel;
+				panel.setAttribute('tooltiptext', panel.getAttribute('tooltiptext-'+state));
+				panel.firstChild.setAttribute('tooltiptext', panel.getAttribute('tooltiptext'));
+				panel.setAttribute('state', state);
 				break;
 
 			case 'extensions.textshadow.renderingUnitSize':
@@ -1698,6 +1708,14 @@ var TextShadowService = {
 
 			case 'extensions.textshadow.autoCalculateShadowColor.userStyleSheet':
 				this.autoColorUser = value;
+				break;
+
+			case 'extensions.textshadow.toggleButton':
+				var panel = this.statusbarPanel;
+				if (value)
+					panel.removeAttribute('hidden');
+				else
+					panel.setAttribute('hidden', true);
 				break;
 
 			default:

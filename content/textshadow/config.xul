@@ -39,10 +39,6 @@
 		preference="extensions.textshadow.autoCalculateShadowColor.userStyleSheet"
 		label="&extensions.textshadow.autoCalculateShadowColor.userStyleSheet;"/>
 
-	<checkbox id="extensions.textshadow.toggleButton-check"
-		preference="extensions.textshadow.toggleButton"
-		label="&extensions.textshadow.toggleButton;"/>
-
 	<hbox align="center">
 		<label class="shrinked-label"
 			value="&extensions.textshadow.renderingUnitSize.before;"
@@ -67,6 +63,10 @@
 			</radiogroup>
 		</vbox>
 	</groupbox>
+
+	<checkbox id="extensions.textshadow.toggleButton-check"
+		preference="extensions.textshadow.toggleButton"
+		label="&extensions.textshadow.toggleButton;"/>
 </prefpane>
 
 </prefwindow>

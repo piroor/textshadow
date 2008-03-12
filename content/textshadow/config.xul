@@ -67,6 +67,9 @@
 	<checkbox id="extensions.textshadow.toggleButton-check"
 		preference="extensions.textshadow.toggleButton"
 		label="&extensions.textshadow.toggleButton;"/>
+
+	<!-- if a checkbox label is wrapped, pane contents are overflowed. -->
+	<spacer style="height:1em;"/>
 </prefpane>
 
 </prefwindow>

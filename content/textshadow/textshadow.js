@@ -1066,7 +1066,12 @@ var TextShadowService = {
 						return id;
 					}));
 				rootNode.setAttribute(this.ATTR_INIT_CUE, cues.toSource());
-				rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
+				try {
+					rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(rootNode).width);
+				}
+				catch(e) {
+					rootNode.setAttribute(this.ATTR_LAST_WIDTH, d.getBoxObjectFor(d.body).width);
+				}
 				this.startInitialize(aFrame);
 				break;
 		}

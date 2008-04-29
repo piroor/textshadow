@@ -3,6 +3,7 @@ var TextShadowService = {
 	PREFROOT : 'extensions.textshadow@piro.sakura.ne.jp',
 
 	shadowEnabled         : false,
+	useGlobalStyleSheets  : false,
 	positionQuality       : 1,
 	renderingUnitSize     : 1,
 	silhouettePseud       : true,
@@ -71,7 +72,7 @@ var TextShadowService = {
 		return 'SplitBrowser' in window ? SplitBrowser.activeBrowser : gBrowser ;
 	},
  
-	get statusbarPanel()
+	get statusbarPanel() 
 	{
 		return document.getElementById('textshadow-toggle-button');
 	},
@@ -989,7 +990,7 @@ var TextShadowService = {
 	},
   
 /* update shadow */ 
-	
+	 
 	updateShadowForFrame : function(aFrame, aReason) 
 	{
 		if (!this.shadowEnabled) return;
@@ -1035,7 +1036,8 @@ var TextShadowService = {
 					nodes = this.collectTargets(aFrame);
 					if (!nodes) return;
 
-					this.addStyleSheet(d, 'chrome://textshadow/content/textshadow.css');
+					if (!this.useGlobalStyleSheets)
+						this.addStyleSheet(d, 'chrome://textshadow/content/textshadow.css');
 				}
 				else {
 					nodes = this.getNodesByXPath('/descendant-or-self::*[@'+this.ATTR_STYLE+']', d);
@@ -1487,6 +1489,11 @@ var TextShadowService = {
 			window.setStyleDisabled = this.setStyleDisabled;
 		}
 
+		if (this.SSS) {
+			this.useGlobalStyleSheets = true;
+			this.updateGlobalStyleSheets();
+		}
+
 
 		this.initialized = true;
 	},
@@ -1579,7 +1586,39 @@ var TextShadowService = {
 		if (!aDisable)
 			TSS.updateShadowForTabBrowser(TSS.browser, TSS.UPDATE_STYLE_ENABLE);
 	},
-  
+ 
+	updateGlobalStyleSheets : function() 
+	{
+		if (!this.useGlobalStyleSheets) return;
+
+		var sheet = this.IOService.newURI('chrome://textshadow/content/textshadow.css', null, null);
+		if (
+			this.shadowEnabled &&
+			!this.SSS.sheetRegistered(sheet, this.SSS.AGENT_SHEET)
+			) {
+			this.SSS.loadAndRegisterSheet(sheet, this.SSS.AGENT_SHEET);
+		}
+		else if (
+			!this.shadowEnabled &&
+			this.SSS.sheetRegistered(sheet, this.SSS.AGENT_SHEET)
+			) {
+			this.SSS.unregisterSheet(sheet, this.SSS.AGENT_SHEET);
+		}
+	},
+	 
+	get SSS() 
+	{
+		if (this._SSS === void(0)) {
+			if ('@mozilla.org/content/style-sheet-service;1' in Components.classes) {
+				this._SSS = Components.classes['@mozilla.org/content/style-sheet-service;1'].getService(Components.interfaces.nsIStyleSheetService);
+			}
+			if (!this._SSS)
+				this._SSS = null;
+		}
+		return this._SSS;
+	},
+//	_SSS : null,
+   
 	destroy : function() 
 	{
 		this.destroyTabBrowser(gBrowser);
@@ -1666,7 +1705,7 @@ var TextShadowService = {
 				break;
 		}
 	},
- 	
+ 
 	observe : function(aSubject, aTopic, aData) 
 	{
 		switch (aTopic)
@@ -1678,7 +1717,7 @@ var TextShadowService = {
 	},
   
 /* Pref Listener */ 
-	
+	 
 	domains : [ 
 		'extensions.textshadow'
 	],
@@ -1697,6 +1736,7 @@ var TextShadowService = {
 				panel.setAttribute('tooltiptext', panel.getAttribute('tooltiptext-'+state));
 				panel.firstChild.setAttribute('tooltiptext', panel.getAttribute('tooltiptext'));
 				panel.setAttribute('state', state);
+				this.updateGlobalStyleSheets();
 				break;
 
 			case 'extensions.textshadow.renderingUnitSize':
@@ -1919,7 +1959,7 @@ TextShadowPrefListener.prototype = {
 		é¿ëïÇ≥ÇÍÇÈÇ◊Ç´ï®ÅBëÊàÍà¯êîÇÃaThisÇÕthisÇ…ëäìñÅB
 	*/
 var TextShadowBoxService = { 
-	 
+	
 	hasFollowingExpression : 'following-sibling::* | following-sibling::* | following-sibling::text()[translate(text(), " \u3000\t\n\r", "")]', 
  
 	init : function(aThis) 

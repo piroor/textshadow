@@ -890,10 +890,7 @@ var TextShadowService = {
 				var postWhiteSpaces = node.nodeValue.match(/\s+$/);
 				if (postWhiteSpaces) {
 					node.nodeValue = node.nodeValue.replace(/\s+$/, '');
-					if (node.nextSibling)
-						node.parentNode.insertBefore(d.createTextNode(postWhiteSpaces), node.nextSibling);
-					else
-						node.parentNode.appendChild(d.createTextNode(postWhiteSpaces));
+					node.parentNode.insertBefore(d.createTextNode(postWhiteSpaces), node.nextSibling);
 				}
 
 				var newWrapper = wrapper.cloneNode(true);

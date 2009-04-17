@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="Shift_JIS"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:test="http://piro.sakura.ne.jp/test">
 <head>
 <title>testcases</title>
@@ -65,9 +65,9 @@ p:hover {
 
 <div>
 
-<h1 style="color: green; text-shadow: 0.1em 0.1em 0.1em;">�e�X�g�P�[�X</h1>
+<h1 style="color: green; text-shadow: 0.1em 0.1em 0.1em;">テストケース</h1>
 
-<p><button id="test-button">SELECTOR TEST</button>�F���͂����Z���N�^�Ƀ}�b�`����u���b�N�ɐԂ��g��\�����܂��B</p>
+<p><button id="test-button">SELECTOR TEST</button>：入力したセレクタにマッチするブロックに赤い枠を表示します。</p>
 <script type="text/javascript" src="selector.js.txt"></script>
 <script type="text/javascript"><!--
 
@@ -84,52 +84,52 @@ document.getElementById('test-button').addEventListener('click', function() {
 //--></script>
 
 <ul>
-	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">�i���܂邲�Ƃ�text-shadow</a></li>
-	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">�C�����C���v�f�ƃe�L�X�g�m�[�h���A������P�[�X</a></li>
-	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line�^���v�f</a></li>
-	<li><a href="http://taken.s101.xrea.com/blog/index.php">��ʂ̉e</a></li>
-	<li><a href="http://d.hatena.ne.jp/saiton/">�E�񂹃e�L�X�g�̉e�Ȃ�</a></li>
+	<li><a href="http://piro.sakura.ne.jp/latest/blosxom/mozilla/misc/2007-06-12_safariwindows.htm">段落まるごとのtext-shadow</a></li>
+	<li><a href="http://www.misao.gr.jp/~koshian/?20070728S1">インライン要素とテキストノードが連続するケース</a></li>
+	<li><a href="http://whatdoiknow.org/other/shadow.html">:first-line疑似要素</a></li>
+	<li><a href="http://taken.s101.xrea.com/blog/index.php">大量の影</a></li>
+	<li><a href="http://d.hatena.ne.jp/saiton/">右寄せテキストの影など</a></li>
 	<li><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=10713">Implement CSS2/3 text-shadow property</a></li>
 </ul>
 
 
-<p style="padding-left: 2em; max-width: 42em; text-indent:2em;">�������̐܂�Ԃ��̃e�X�g�B���̒i���͒����̂ŁA�r���Ő܂�Ԃ���܂��B<em>�����C�����C���v�f�B���̃C�����C���v�f�̓��e�������̂ŁA�r���Ő܂�Ԃ���܂��B</em>�㑱���钷�����B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
+<p style="padding-left: 2em; max-width: 42em; text-indent:2em;">長い文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
-<p style="padding-left: 2em; max-width: 42em; text-indent:2em; text-align: center;">�����񂹂̕��̐܂�Ԃ��̃e�X�g�B���̒i���͒����̂ŁA�r���Ő܂�Ԃ���܂��B<em>�����C�����C���v�f�B���̃C�����C���v�f�̓��e�������̂ŁA�r���Ő܂�Ԃ���܂��B</em>�㑱���钷�����B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
+<p style="padding-left: 2em; max-width: 42em; text-indent:2em; text-align: center;">中央寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
-<p style="padding-left: 2em; max-width: 42em; text-align: right;">�E�񂹂̕��̐܂�Ԃ��̃e�X�g�B���̒i���͒����̂ŁA�r���Ő܂�Ԃ���܂��B<em>�����C�����C���v�f�B���̃C�����C���v�f�̓��e�������̂ŁA�r���Ő܂�Ԃ���܂��B</em>�㑱���钷�����B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
+<p style="padding-left: 2em; max-width: 42em; text-align: right;">右寄せの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
-<p style="padding-left: 2em; max-width: 42em; text-align: justify;">���[�����̕��̐܂�Ԃ��̃e�X�g�B���̒i���͒����̂ŁA�r���Ő܂�Ԃ���܂��B<em>�����C�����C���v�f�B���̃C�����C���v�f�̓��e�������̂ŁA�r���Ő܂�Ԃ���܂��B</em>�㑱���钷�����B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
-
-
-
-<p style="padding-left: 2em; max-width: 35em; text-align: center;">�����񂹂̕��̐܂�Ԃ��̃e�X�g�B<em>�����̃C�����C���v�f�B</em>�א؂�̒i���ł��B<em>�Z���C�����C���v�f�B</em>�����ɏI���܂��B<em>�ʂ̃C�����C���v�f�B</em>�㑱���钷�����B<em>�܂��܂��ʂ̃C�����C���v�f�B</em>���̕��������̂ŁA<em>�r��</em>�Ő܂�Ԃ���܂��B</p>
-
-<p style="padding-left: 2em; max-width: 35em; text-align: right;">�E�񂹂̕��̐܂�Ԃ��̃e�X�g�B<em>�����̃C�����C���v�f�B</em>�א؂�̒i���ł��B<em>�Z���C�����C���v�f�B</em>�����ɏI���܂��B<em>�ʂ̃C�����C���v�f�B</em>�㑱���钷�����B<em>�܂��܂��ʂ̃C�����C���v�f�B</em>���̕��������̂ŁA<em>�r��</em>�Ő܂�Ԃ���܂��B</p>
-
-
-<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">�����񂹂̕��̐܂�Ԃ��̃e�X�g�B<em>����C�����C���v�f�B</em>�㑱����Z�����B<em>2��ȏ�܂�Ԃ���钷���C�����C���v�f�B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B����͍ŏI�s�ɂ܂ő����܂��B</em>���̕��������̂ŁA<em>�r��</em>�Ő܂�Ԃ���܂��B</p>
-<p style="padding-left: 2em; max-width: 35em; text-align: right;">�E�񂹂̕��̐܂�Ԃ��̃e�X�g�B<em>����C�����C���v�f�B</em>�㑱����Z�����B<em>2��ȏ�܂�Ԃ���钷���C�����C���v�f�B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B����͍ŏI�s�ɂ܂ő����܂��B</em>���̕��������̂ŁA<em>�r��</em>�Ő܂�Ԃ���܂��B</p>
-<p style="padding-left: 2em; max-width: 35em; text-indent: 2em;">���񂹂̕��̐܂�Ԃ��̃e�X�g�B����C�����C���v�f�B�㑱����Z�����B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B����͍ŏI�s�ɂ܂ő����܂��B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
-<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">�����񂹂̕��̐܂�Ԃ��̃e�X�g�B����C�����C���v�f�B�㑱����Z�����B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B����͍ŏI�s�ɂ܂ő����܂��B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
-<p style="padding-left: 2em; max-width: 35em; text-align: right;">�E�񂹂̕��̐܂�Ԃ��̃e�X�g�B����C�����C���v�f�B�㑱����Z�����B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B2��ȏ�܂�Ԃ���钷���C�����C���v�f�B����͍ŏI�s�ɂ܂ő����܂��B���̕��������̂ŁA�r���Ő܂�Ԃ���܂��B</p>
+<p style="padding-left: 2em; max-width: 42em; text-align: justify;">両端揃えの文の折り返しのテスト。この段落は長いので、途中で折り返されます。<em>長いインライン要素。このインライン要素の内容も長いので、途中で折り返されます。</em>後続する長い文。この文も長いので、途中で折り返されます。</p>
 
 
 
+<p style="padding-left: 2em; max-width: 35em; text-align: center;">中央寄せの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
+
+<p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。<em>文中のインライン要素。</em>細切れの段落です。<em>短いインライン要素。</em>すぐに終わります。<em>別のインライン要素。</em>後続する長い文。<em>またまた別のインライン要素。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
 
 
-<p class="test1" style="max-width: 45em;">:first-line�^���v�f�̃e�X�g�B��s�ڂ������Ԃ��Ȃ�܂��B�������Ȃ���A�ĕ`�掞�̎������ȗ����Ă��邽�߁A�E�B���h�E�����ω�����Ȃǂ��āu1�s�ځv�͈̔͂��ω������ۂɁA�X�^�C���w�肪���������f����Ȃ��Ȃ�܂��B</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">中央寄せの文の折り返しのテスト。<em>あるインライン要素。</em>後続する短い文。<em>2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。<em>あるインライン要素。</em>後続する短い文。<em>2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。</em>この文も長いので、<em>途中</em>で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-indent: 2em;">左寄せの文の折り返しのテスト。あるインライン要素。後続する短い文。2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。この文も長いので、途中で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: center; text-indent: 2em;">中央寄せの文の折り返しのテスト。あるインライン要素。後続する短い文。2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。この文も長いので、途中で折り返されます。</p>
+<p style="padding-left: 2em; max-width: 35em; text-align: right;">右寄せの文の折り返しのテスト。あるインライン要素。後続する短い文。2回以上折り返される長いインライン要素。2回以上折り返される長いインライン要素。これは最終行にまで続きます。この文も長いので、途中で折り返されます。</p>
 
-<p class="test2" style="max-width: 45em;">�u�擪�̈ꕶ���v�������Ԃ��Ȃ�܂��B���m�ɂ́A���ʂ��܂�2�������̃X�^�C�����ω����܂��B�܂��Afloat:left���w�肳��Ă��邽�߁A�g�u��h�̕����������t���[�g�ɂȂ�A�c��̕����͉E�ɂ悯���܂��B�������Ȃ���A���݂̎����ł̓t���[�g�Ɍ㑱����m�[�h�̊O�ςɂ��Ă̑΍��ӂ��Ă��邽�߁A�㑱����e�L�X�g���t���[�g�ɂȂ���:first-letter�̉ӏ��ɏd�Ȃ��Ă��܂��܂��B</p>
 
-<p class="only-child"><em style="font-weight: bold;">������������������������</em></p>
 
-<p>�i��<em>�����̋���</em>�i��<span><em>span���̋���</em></span>�i��</p>
 
-<p>�i��<em style="text-shadow:2px 2px 4px green;">�C�����C���ł̃X�^�C���w�肪�D�悳��A�ΐF�̉e�ɂȂ�܂��B</em>�i��</p>
-<p>�i��<em style="text-shadow:2px 2px 4px inherit !important;">�C�����C���ł̃X�^�C���w�肪�D�悳��A�e�̉e�Ɠ����F�̉e�ɂȂ�܂��B</em>�i��</p>
 
-<p id="target"><a href="#target">���̒i�����^�[�Q�b�g�ɂ��������N</a></p>
+<p class="test1" style="max-width: 45em;">:first-line疑似要素のテスト。一行目だけが赤くなります。しかしながら、再描画時の実装を省略しているため、ウィンドウ幅が変化するなどして「1行目」の範囲が変化した際に、スタイル指定が正しく反映されなくなります。</p>
+
+<p class="test2" style="max-width: 45em;">「先頭の一文字」だけが赤くなります。正確には、括弧を含む2文字分のスタイルが変化します。また、float:leftが指定されているため、“「先”の部分だけがフロートになり、残りの部分は右によけられます。しかしながら、現在の実装ではフロートに後続するノードの外観についての対策を怠っているため、後続するテキストがフロートになった:first-letterの箇所に重なってしまいます。</p>
+
+<p class="only-child"><em style="font-weight: bold;">強調強調強調強調強調強調</em></p>
+
+<p>段落<em>直下の強調</em>段落<span><em>span内の強調</em></span>段落</p>
+
+<p>段落<em style="text-shadow:2px 2px 4px green;">インラインでのスタイル指定が優先され、緑色の影になります。</em>段落</p>
+<p>段落<em style="text-shadow:2px 2px 4px inherit !important;">インラインでのスタイル指定が優先され、親の影と同じ色の影になります。</em>段落</p>
+
+<p id="target"><a href="#target">この段落をターゲットにしたリンク</a></p>
 
 <ul class="test">
 	<li><input type="checkbox" checked="true" />checked</li>
@@ -140,21 +140,21 @@ document.getElementById('test-button').addEventListener('click', function() {
 </ul>
 
 <ul class="test">
-	<li>����</li>
-	<li>���ځF��</li>
-	<li testAttr="hoge">���ځF��</li>
-	<li testAttr="foo bar hogehoge">���ځF��</li>
-	<li lang="en-US">���ځF��</li>
-	<li>���ځF��</li>
+	<li>項目</li>
+	<li>項目：青</li>
+	<li testAttr="hoge">項目：赤</li>
+	<li testAttr="foo bar hogehoge">項目：赤</li>
+	<li lang="en-US">項目：赤</li>
+	<li>項目：青</li>
 </ul>
 
 <div class="container">
-	<p>HTML�̖��O��Ԃ�p�v�f�B���e���t���܂��B</p>
-	<test:p>�ʂ̖��O��Ԃ�p�v�f�B�Ԃ��e���t���܂��B</test:p>
+	<p>HTMLの名前空間のp要素。青い影が付きます。</p>
+	<test:p>別の名前空間のp要素。赤い影が付きます。</test:p>
 </div>
 
 
-<p class="test3">�Ō��p�v�f�B:last-child�^���N���X�ɂ��A���e���t���܂��B</p>
+<p class="test3">最後のp要素。:last-child疑似クラスにより、青い影が付きます。</p>
 
 </div>
 </body>

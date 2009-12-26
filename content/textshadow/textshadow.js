@@ -1011,7 +1011,7 @@ var TextShadowService = {
 				this.stopInitialize(aFrame);
 				this.stopAllDraw(aFrame);
 				var newEvent = d.createEvent('UIEvents');
-				newEvent.initEvent('TextShadowClearRequest', false, true, d.defaultView, 0);
+				newEvent.initUIEvent('TextShadowClearRequest', false, true, d.defaultView, 0);
 				d.documentElement.dispatchEvent(newEvent);
 				break;
 
@@ -1020,7 +1020,7 @@ var TextShadowService = {
 				this.stopInitialize(aFrame);
 				this.stopAllDraw(aFrame);
 				var newEvent = d.createEvent('UIEvents');
-				newEvent.initEvent('TextShadowRebuildRequest', false, true, d.defaultView, 0);
+				newEvent.initUIEvent('TextShadowRebuildRequest', false, true, d.defaultView, 0);
 				d.documentElement.dispatchEvent(newEvent);
 
 			case this.UPDATE_PAGELOAD:

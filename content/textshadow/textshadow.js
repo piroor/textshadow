@@ -1010,8 +1010,8 @@ var TextShadowService = {
 			case this.UPDATE_STYLE_DISABLE:
 				this.stopInitialize(aFrame);
 				this.stopAllDraw(aFrame);
-				var newEvent = d.createEvent('Events');
-				newEvent.initEvent('TextShadowClearRequest', false, true);
+				var newEvent = d.createEvent('UIEvents');
+				newEvent.initEvent('TextShadowClearRequest', false, true, d.defaultView, 0);
 				d.documentElement.dispatchEvent(newEvent);
 				break;
 
@@ -1019,8 +1019,8 @@ var TextShadowService = {
 				if (rootNode.getAttribute(this.ATTR_LAST_WIDTH) == d.getBoxObjectFor(rootNode).width) return;
 				this.stopInitialize(aFrame);
 				this.stopAllDraw(aFrame);
-				var newEvent = d.createEvent('Events');
-				newEvent.initEvent('TextShadowRebuildRequest', false, true);
+				var newEvent = d.createEvent('UIEvents');
+				newEvent.initEvent('TextShadowRebuildRequest', false, true, d.defaultView, 0);
 				d.documentElement.dispatchEvent(newEvent);
 
 			case this.UPDATE_PAGELOAD:
